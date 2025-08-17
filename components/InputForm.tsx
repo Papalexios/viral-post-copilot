@@ -1,0 +1,154 @@
+
+
+
+import React, { useState } from 'react';
+import { Tone, Platform, CampaignGoal, InputMode, type InputFormData } from '../types';
+import { PLATFORMS, TONES, CAMPAIGN_GOALS } from '../constants';
+
+interface InputFormProps {
+  onGenerate: (formData: InputFormData) => void;
+  isLoading: boolean;
+}
+
+export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) => {
+  const [inputMode, setInputMode] = useState<InputMode>(InputMode.Topic);
+  const [topic, setTopic] = useState<string>('');
+  const [sourceUrl, setSourceUrl] = useState<string>('');
+  const [postCount, setPostCount] = useState<number>(3);
+  const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([Platform.Twitter, Platform.LinkedIn]);
+  const [tone, setTone] = useState<Tone>(Tone.Professional);
+  const [campaignGoal, setCampaignGoal] = useState<CampaignGoal>(CampaignGoal.BrandAwareness);
+
+  const handlePlatformToggle = (platformName: Platform) => {
+    setSelectedPlatforms(prev =>
+      prev.includes(platformName)
+        ? prev.filter(p => p !== platformName)
+        : [...prev, platformName]
+    );
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onGenerate({ inputMode, topic, sourceUrl, selectedPlatforms, tone, campaignGoal, postCount });
+  };
+  
+  const isGenerateDisabled = isLoading || selectedPlatforms.length === 0 || (inputMode === InputMode.Topic && !topic.trim()) || (inputMode === InputMode.URLSitemap && !sourceUrl.trim());
+
+  return (
+    <form onSubmit={handleSubmit} className="p-8 bg-slate-800/50 rounded-2xl border border-slate-700 space-y-8 shadow-2xl shadow-slate-950/50 mt-8">
+      {/* Step 1: Source */}
+      <div>
+        <label className="block text-xl font-semibold mb-3 text-cyan-300">
+          Step 1: Define Your Content Source
+        </label>
+        <div className="flex bg-slate-900/50 border border-slate-700 rounded-lg p-1 space-x-1 mb-4">
+            <button type="button" onClick={() => setInputMode(InputMode.Topic)} className={`w-full text-center px-3 py-2 rounded-md transition-colors duration-300 font-semibold text-sm ${inputMode === InputMode.Topic ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                Topic / Keyword
+            </button>
+            <button type="button" onClick={() => setInputMode(InputMode.URLSitemap)} className={`w-full text-center px-3 py-2 rounded-md transition-colors duration-300 font-semibold text-sm ${inputMode === InputMode.URLSitemap ? 'bg-cyan-600 text-white' : 'text-slate-300 hover:bg-slate-700'}`}>
+                URL / Sitemap
+            </button>
+        </div>
+        {inputMode === InputMode.Topic ? (
+             <input
+                id="topic"
+                type="text"
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="e.g., The future of renewable energy"
+                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300"
+                required
+              />
+        ) : (
+            <textarea
+                id="sourceUrl"
+                value={sourceUrl}
+                onChange={(e) => setSourceUrl(e.target.value)}
+                placeholder="Enter one or more URLs, or a sitemap.xml. One per line."
+                className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 text-slate-100 placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300 h-24"
+                required
+             />
+        )}
+      </div>
+
+      {/* Step 2: Platform Selection */}
+      <div>
+        <label className="block text-xl font-semibold mb-3 text-purple-300">
+          Step 2: Select Target Platforms
+        </label>
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+          {PLATFORMS.map(({ name, icon: Icon }) => (
+            <button
+              key={name}
+              type="button"
+              onClick={() => handlePlatformToggle(name)}
+              className={`flex flex-col items-center justify-center p-4 border-2 rounded-xl transition-all duration-300 transform hover:-translate-y-1 ${
+                selectedPlatforms.includes(name)
+                  ? 'bg-purple-600/30 border-purple-500 text-white'
+                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-purple-400 hover:text-white'
+              }`}
+            >
+              <div className="h-8 w-8"><Icon /></div>
+              <span className="mt-2 font-semibold text-sm">{name}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Step 3, 4, 5 */}
+      <div className="grid md:grid-cols-3 gap-8">
+        <div>
+           <label htmlFor="campaignGoal" className="block text-xl font-semibold mb-3 text-orange-300">
+            Step 3: Goal
+          </label>
+          <select
+            id="campaignGoal"
+            value={campaignGoal}
+            onChange={(e) => setCampaignGoal(e.target.value as CampaignGoal)}
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 transition-all duration-300"
+          >
+            {CAMPAIGN_GOALS.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="tone" className="block text-xl font-semibold mb-3 text-teal-300">
+            Step 4: Tone
+          </label>
+          <select
+            id="tone"
+            value={tone}
+            onChange={(e) => setTone(e.target.value as Tone)}
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 transition-all duration-300"
+          >
+            {TONES.map(t => <option key={t} value={t}>{t}</option>)}
+          </select>
+        </div>
+         <div>
+          <label htmlFor="postCount" className="block text-xl font-semibold mb-3 text-pink-300">
+            Step 5: Posts
+          </label>
+           <input
+            id="postCount"
+            type="number"
+            value={postCount}
+            onChange={(e) => setPostCount(Math.max(1, Math.min(12, parseInt(e.target.value, 10) || 1)))}
+            min="1"
+            max="12"
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-3 focus:ring-2 focus:ring-pink-500 focus:border-pink-500 transition-all duration-300"
+          />
+        </div>
+      </div>
+      
+      {/* Step 6: Generate */}
+      <div className="pt-4 border-t border-slate-700/50">
+         <button
+          type="submit"
+          disabled={isGenerateDisabled}
+          className="w-full text-lg font-bold py-4 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 disabled:transform-none"
+        >
+          {isLoading ? 'Generating Magic...' : 'Generate Campaign'}
+        </button>
+      </div>
+    </form>
+  );
+};
