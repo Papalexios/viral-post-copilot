@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import type { GeneratedPost, PostVariation, Platform } from '../types';
 import { PLATFORMS } from '../constants';
@@ -7,6 +6,7 @@ import { CheckIcon } from './icons/CheckIcon';
 import { InfoIcon } from './icons/InfoIcon';
 import { WordPressIcon } from './icons/WordPressIcon';
 import { SkeletonLoader } from './SkeletonLoader';
+import { SparklesIcon } from './icons/SparklesIcon';
 
 const RedoIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -16,7 +16,7 @@ const RedoIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const ShareIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
     <polyline points="16 6 12 2 8 6"></polyline>
     <line x1="12" y1="2" x2="12" y2="15"></line>
@@ -248,8 +248,12 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
             <span>{showDetails ? 'Hide' : 'Show'} Full Analysis</span>
             <svg className={`w-4 h-4 transition-transform ${showDetails ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
         </button>
-        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showDetails ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
+        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showDetails ? 'max-h-[30rem] opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="mt-4 space-y-4 pt-4 border-t border-slate-700/50">
+                <div>
+                    <h4 className="font-semibold text-cyan-300 mb-2 flex items-center gap-2"><SparklesIcon className="w-4 h-4" /> Primary Viral Trigger</h4>
+                    <p className="text-slate-300 text-sm bg-slate-900/50 p-3 rounded-md font-medium">{activeVariation.viral_trigger || 'Not specified'}</p>
+                </div>
                 <div>
                     <h4 className="font-semibold text-cyan-300 mb-2">A/B Test Rationale</h4>
                     <p className="text-slate-400 text-xs italic bg-slate-900/50 p-3 rounded-md">{post.optimization_notes}</p>

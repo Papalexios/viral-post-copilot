@@ -43,6 +43,7 @@ export interface PostVariation {
     post_text: string;
     call_to_action: string;
     share_snippet: string;
+    viral_trigger: string;
 }
 
 export type WordPressPostStatus = 'idle' | 'publishing' | 'published' | 'error';
