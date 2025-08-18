@@ -92,7 +92,7 @@ export const ApiConfigurator: React.FC<ApiConfiguratorProps> = ({ currentConfig,
             id="provider"
             value={provider}
             onChange={(e) => handleProviderChange(e.target.value as AiProvider)}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
           >
             {AI_PROVIDERS.map(p => <option key={p.name} value={p.name}>{p.name}</option>)}
           </select>
@@ -121,7 +121,7 @@ export const ApiConfigurator: React.FC<ApiConfiguratorProps> = ({ currentConfig,
               setValidationStatus('idle');
             }}
             placeholder={`Enter your ${provider} API Key`}
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
           />
         </div>
 
@@ -134,7 +134,7 @@ export const ApiConfigurator: React.FC<ApiConfiguratorProps> = ({ currentConfig,
                     value={model}
                     onChange={(e) => setModel(e.target.value)}
                     placeholder="e.g., google/gemini-flash-1.5"
-                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-indigo-500 focus:border-indigo-500 transition-all"
+                    className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
                 />
             </div>
         )}
@@ -143,7 +143,7 @@ export const ApiConfigurator: React.FC<ApiConfiguratorProps> = ({ currentConfig,
           <button
             onClick={handleValidateAndSave}
             disabled={validationStatus === 'validating' || (provider !== AiProvider.Gemini && !apiKey)}
-            className="w-full font-bold py-2.5 px-5 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 text-white disabled:opacity-50 disabled:cursor-not-allowed enabled:active:scale-95"
+            className="w-full font-bold py-2.5 px-5 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-50 disabled:cursor-not-allowed enabled:active:scale-95"
           >
             {validationStatus === 'validating' ? 'Validating...' : 'Validate & Save'}
           </button>

@@ -4,6 +4,7 @@ import { SparklesIcon } from './icons/SparklesIcon';
 import { HistoryIcon } from './icons/HistoryIcon';
 import { KeyIcon } from './icons/KeyIcon';
 import { PublishIcon } from './icons/PublishIcon';
+import { BookOpenIcon } from './icons/BookOpenIcon';
 import type { ActiveView } from '../App';
 
 
@@ -21,12 +22,12 @@ const NavItem: React.FC<{
     <button
       onClick={onClick}
       className={`relative flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors duration-200 ${
-        isActive ? 'text-cyan-400' : 'text-slate-400 hover:text-white'
+        isActive ? 'text-green-400' : 'text-slate-400 hover:text-white'
       }`}
     >
-        {isActive && <div className="absolute top-0 h-0.5 w-full bg-cyan-400"></div>}
+        {isActive && <div className="absolute top-0 h-0.5 w-full bg-green-400"></div>}
         {icon}
-        <span className={`text-xs mt-1 font-medium ${isActive ? 'text-cyan-400' : 'text-slate-500'}`}>{label}</span>
+        <span className={`text-xs mt-1 font-medium ${isActive ? 'text-green-400' : 'text-slate-500'}`}>{label}</span>
     </button>
 );
 
@@ -45,6 +46,12 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeView, setActiv
             label="History"
             isActive={activeView === 'history'}
             onClick={() => setActiveView('history')}
+        />
+        <NavItem
+            icon={<BookOpenIcon className="w-6 h-6" />}
+            label="Resources"
+            isActive={activeView === 'resources'}
+            onClick={() => setActiveView('resources')}
         />
         <NavItem
             icon={<PublishIcon className="w-6 h-6" />}

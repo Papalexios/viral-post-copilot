@@ -65,7 +65,7 @@ const ImageDisplay: React.FC<{ post: GeneratedPost; onRegenerate: () => void; }>
 };
 
 const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation }> = ({ post, variation }) => {
-    const BrandIcon = () => <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-purple-500 to-cyan-400 flex-shrink-0"></div>;
+    const BrandIcon = () => <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-green-400 flex-shrink-0"></div>;
     
     switch(post.platform) {
         case 'Twitter':
@@ -183,7 +183,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
 
 
   return (
-    <div className="bg-slate-800/60 border border-slate-700 rounded-xl shadow-lg flex flex-col overflow-hidden transition-all duration-300 hover:border-purple-500/50 hover:shadow-purple-900/40">
+    <div className="bg-slate-800/60 border border-slate-700 rounded-xl shadow-lg flex flex-col overflow-hidden transition-all duration-300 hover:border-green-500/50 hover:shadow-green-900/40">
       <div className="p-5 flex justify-between items-start bg-slate-900/50 border-b border-slate-700">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 text-slate-300">
@@ -200,8 +200,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
         </div>
       </div>
        <div className="p-1.5 bg-slate-900/50 flex border-b border-slate-700">
-          <button onClick={() => setViewMode('content')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'content' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-700/50'}`}>Content</button>
-          <button onClick={() => setViewMode('preview')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'preview' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-700/50'}`}>Preview</button>
+          <button onClick={() => setViewMode('content')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'content' ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-700/50'}`}>Content</button>
+          <button onClick={() => setViewMode('preview')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'preview' ? 'bg-green-600 text-white' : 'text-slate-400 hover:bg-slate-700/50'}`}>Preview</button>
       </div>
 
       <div className="p-5 space-y-4 flex-grow">
@@ -218,7 +218,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
                         key={index}
                         onClick={() => setActiveVariationIndex(index)}
                         className={`w-full text-center px-3 py-2 rounded-md transition-colors duration-300 font-semibold text-sm active:scale-95 ${
-                            activeVariationIndex === index ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-700'
+                            activeVariationIndex === index ? 'bg-green-600 text-white' : 'text-slate-300 hover:bg-slate-700'
                         }`}
                     >
                         {variation.variation_name.split(':')[0]}
@@ -227,7 +227,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
             </div>
             <div>
               <div className="flex justify-between items-center mb-2">
-                <h4 className="font-semibold text-purple-300">{activeVariation.variation_name}</h4>
+                <h4 className="font-semibold text-cyan-300">{activeVariation.variation_name}</h4>
                 <div className="flex items-center gap-4">
                     <CopyButton text={activeVariation.post_title} id={`title-${activeVariationIndex}`} label="Copy Title" />
                     <CopyButton text={activeVariation.post_text} id={`post-${activeVariationIndex}`} label="Copy Body Text" />

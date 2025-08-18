@@ -27,14 +27,14 @@ const AnalysisItem: React.FC<{ title: string, content: string | string[] }> = ({
 export const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, groundingMetadata }) => {
   return (
     <div className="p-4 sm:p-6 bg-slate-800 rounded-2xl border border-slate-700 shadow-2xl shadow-slate-950/50">
-      <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6 flex items-center justify-center gap-3 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-pink-400">
+      <h2 className="text-2xl sm:text-3xl font-bold text-center mb-6 flex items-center justify-center gap-3 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-green-400">
         <SparklesIcon className="w-7 h-7 sm:w-8 sm:h-8"/>
         AI Analysis & Strategy
         <SparklesIcon className="w-7 h-7 sm:w-8 sm:h-8"/>
       </h2>
 
-      <div className="mb-6 bg-slate-900/50 p-4 sm:p-5 rounded-lg border border-purple-700/50">
-          <h3 className="text-lg sm:text-xl font-bold text-purple-300 mb-2">Overall Campaign Strategy</h3>
+      <div className="mb-6 bg-slate-900/50 p-4 sm:p-5 rounded-lg border border-green-700/50">
+          <h3 className="text-lg sm:text-xl font-bold text-green-300 mb-2">Overall Campaign Strategy</h3>
           <p className="text-slate-300 whitespace-pre-wrap text-sm sm:text-base leading-relaxed">{analysis.campaign_strategy}</p>
       </div>
 

@@ -52,7 +52,7 @@ export const WordPressConfigurator: React.FC<WordPressConfiguratorProps> = ({ cu
   return (
     <div className="p-4 sm:p-6 bg-slate-800/50 rounded-2xl border border-slate-700 mt-8 shadow-lg transition-all duration-300 animate-fade-in">
       <div className="flex justify-between items-center mb-4">
-        <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-3"><PublishIcon className="w-6 h-6 text-cyan-300" /> Publishing Settings</h2>
+        <h2 className="text-2xl font-bold text-slate-100 flex items-center gap-3"><PublishIcon className="w-6 h-6 text-green-300" /> Publishing Settings</h2>
          {currentConfig.isValidated && (
             <button onClick={onClose} className="text-slate-500 hover:text-white transition-colors md:hidden" aria-label="Close">
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
@@ -74,7 +74,7 @@ export const WordPressConfigurator: React.FC<WordPressConfiguratorProps> = ({ cu
             value={url}
             onChange={e => { setUrl(e.target.value); setValidationStatus('idle'); }}
             placeholder="https://yourblog.com"
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-green-500 focus:border-green-500 transition-all"
           />
         </div>
 
@@ -86,7 +86,7 @@ export const WordPressConfigurator: React.FC<WordPressConfiguratorProps> = ({ cu
             value={username}
             onChange={e => { setUsername(e.target.value); setValidationStatus('idle'); }}
             placeholder="Your WordPress username"
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-green-500 focus:border-green-500 transition-all"
           />
         </div>
 
@@ -98,7 +98,7 @@ export const WordPressConfigurator: React.FC<WordPressConfiguratorProps> = ({ cu
             value={password}
             onChange={e => { setPassword(e.target.value); setValidationStatus('idle'); }}
             placeholder="xxxx xxxx xxxx xxxx xxxx xxxx"
-            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-cyan-500 focus:border-cyan-500 transition-all"
+            className="w-full bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-900 focus:ring-green-500 focus:border-green-500 transition-all"
           />
         </div>
         
@@ -106,7 +106,7 @@ export const WordPressConfigurator: React.FC<WordPressConfiguratorProps> = ({ cu
           <button
             onClick={handleValidateAndSave}
             disabled={isSaveDisabled}
-            className="w-full font-bold py-2.5 px-5 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-cyan-600 hover:bg-cyan-500 text-white disabled:opacity-50 disabled:cursor-not-allowed enabled:active:scale-95"
+            className="w-full font-bold py-2.5 px-5 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-500 text-white disabled:opacity-50 disabled:cursor-not-allowed enabled:active:scale-95"
           >
             {validationStatus === 'validating' ? 'Validating...' : 'Validate & Save Connection'}
           </button>

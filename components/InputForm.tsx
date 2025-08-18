@@ -72,7 +72,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
 
       {/* Step 2: Platform Selection */}
       <div>
-        <label className="block text-lg sm:text-xl font-semibold mb-3 text-purple-300">
+        <label className="block text-lg sm:text-xl font-semibold mb-3 text-green-300">
           Step 2: Select Target Platforms
         </label>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
@@ -83,8 +83,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
               onClick={() => handlePlatformToggle(name)}
               className={`flex flex-col items-center justify-center p-3 sm:p-4 border-2 rounded-xl transition-all duration-300 transform hover:-translate-y-1 active:scale-95 ${
                 selectedPlatforms.includes(name)
-                  ? 'bg-purple-600/30 border-purple-500 text-white'
-                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-purple-400 hover:text-white'
+                  ? 'bg-green-600/30 border-green-500 text-white'
+                  : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-green-400 hover:text-white'
               }`}
             >
               <div className="h-7 w-7 sm:h-8 sm:w-8"><Icon /></div>
@@ -143,7 +143,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
          <button
           type="submit"
           disabled={isGenerateDisabled}
-          className="w-full text-lg font-bold py-4 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-purple-600 to-cyan-500 hover:from-purple-500 hover:to-cyan-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transform enabled:hover:scale-105 enabled:active:scale-100 disabled:transform-none"
+          className="w-full text-lg font-bold py-4 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-cyan-600 to-green-500 hover:from-cyan-500 hover:to-green-400 text-white disabled:opacity-50 disabled:cursor-not-allowed transform enabled:hover:scale-105 enabled:active:scale-100 disabled:transform-none"
         >
           {isLoading ? (
             <>

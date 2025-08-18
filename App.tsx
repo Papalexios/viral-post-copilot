@@ -9,6 +9,7 @@ import { CampaignHistory } from './components/CampaignHistory';
 import { ApiConfigurator } from './components/ApiConfigurator';
 import { WordPressConfigurator } from './components/WordPressConfigurator';
 import { BottomNavBar } from './components/BottomNavBar';
+import { Resources } from './components/Resources';
 import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig, type WordPressConfig } from './types';
 import { generateViralPostsStream, generateImageFromPrompt } from './services/aiService';
 import { publishPostToWordPress } from './services/wordpressService';
@@ -24,7 +25,7 @@ const LOADING_MESSAGES = [
   "Finalizing viral strategy...",
 ];
 
-export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress';
+export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress' | 'resources';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -355,6 +356,9 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
           />
       );
     }
+     if (activeView === 'resources') {
+        return <Resources />;
+     }
 
     // Default generator view
     if (isLoading) return <LoadingSpinner message={loadingMessage} />;
@@ -380,7 +384,7 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
               setError(null);
               if (!aiConfig.isValidated) setActiveView('config');
             }} 
-            className="mb-6 w-full text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-pink-600 to-orange-500 hover:from-pink-500 hover:to-orange-400 text-white transform hover:scale-105 active:scale-100"
+            className="mb-6 w-full text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-cyan-600 to-green-500 hover:from-cyan-500 hover:to-green-400 text-white transform hover:scale-105 active:scale-100"
           >
             Create New Campaign
           </button>
@@ -389,7 +393,7 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
           </div>
           {apiResponse.posts.length > 0 && (
             <div className="mt-12">
-              <h2 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400">
+              <h2 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-green-400">
                 Generated Campaign Content
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -418,6 +422,7 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
         onToggleHistory={() => setActiveView('history')}
         onToggleApiConfig={() => setActiveView('config')}
         onToggleWordPressConfig={() => setActiveView('wordpress')}
+        onToggleResources={() => setActiveView('resources')}
       />
       <main className="container mx-auto px-2 sm:px-4 py-8 pb-24 md:pb-8">
         <div className="max-w-4xl mx-auto">
@@ -425,8 +430,9 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
         </div>
       </main>
       <BottomNavBar activeView={activeView} setActiveView={setActiveView} />
-      <footer className="hidden md:block text-center py-6 text-slate-500 text-sm">
-        <p>Powered by AI. Built by a World-Class Senior Frontend Engineer.</p>
+      <footer className="text-center py-6 text-slate-500 text-sm px-4">
+        <p>An AI Tool by <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-green-400 hover:underline">AffiliateMarketingForSuccess.com</a></p>
+        <p className="mt-1">Learn more about <a href="https://affiliatemarketingforsuccess.com/blog/" target="_blank" rel="noopener noreferrer" className="hover:underline">Affiliate Marketing</a>, <a href="https://affiliatemarketingforsuccess.com/seo/" target="_blank" rel="noopener noreferrer" className="hover:underline">SEO</a>, and <a href="https://affiliatemarketingforsuccess.com/ai/" target="_blank" rel="noopener noreferrer" className="hover:underline">AI Content Generation</a>.</p>
       </footer>
     </div>
   );
