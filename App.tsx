@@ -10,6 +10,7 @@ import { ApiConfigurator } from './components/ApiConfigurator';
 import { WordPressConfigurator } from './components/WordPressConfigurator';
 import { BottomNavBar } from './components/BottomNavBar';
 import { Resources } from './components/Resources';
+import { LandingPage } from './components/LandingPage';
 import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig, type WordPressConfig } from './types';
 import { generateViralPostsStream, generateImageFromPrompt } from './services/aiService';
 import { publishPostToWordPress } from './services/wordpressService';
@@ -439,12 +440,13 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
       );
     }
     
-    return <InputForm onGenerate={handleGenerate} isLoading={isLoading} />;
+    return <LandingPage onGenerate={handleGenerate} isLoading={isLoading} />;
   }
 
   return (
     <div className="min-h-screen font-sans transition-colors duration-300">
       <Header 
+        isLandingPage={!hasResults}
         theme={theme}
         toggleTheme={toggleTheme}
         onToggleHistory={() => setActiveView('history')}

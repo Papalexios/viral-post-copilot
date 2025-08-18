@@ -34,11 +34,11 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const isGenerateDisabled = isLoading || selectedPlatforms.length === 0 || (inputMode === InputMode.Topic && !topic.trim()) || (inputMode === InputMode.URLSitemap && !sourceUrl.trim());
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 sm:p-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-6 sm:space-y-8 shadow-2xl shadow-slate-300/30 dark:shadow-slate-950/50 mt-8">
+    <form onSubmit={handleSubmit} className="p-4 sm:p-8 bg-white/60 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/50 space-y-6 sm:space-y-8 mt-12 backdrop-blur-sm">
       {/* Step 1: Source */}
       <div>
-        <label className="block text-lg sm:text-xl font-semibold mb-3 text-cyan-600 dark:text-cyan-300">
-          Step 1: Define Your Content Source
+        <label className="block text-base font-bold mb-3 text-slate-800 dark:text-slate-200">
+          1. Content Source
         </label>
         <div className="flex bg-slate-100 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-lg p-1 space-x-1 mb-4">
             <button type="button" onClick={() => setInputMode(InputMode.Topic)} className={`w-full text-center px-3 py-2 rounded-md transition-all duration-300 font-semibold text-sm active:scale-95 ${inputMode === InputMode.Topic ? 'bg-cyan-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
@@ -72,8 +72,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
 
       {/* Step 2: Platform Selection */}
       <div>
-        <label className="block text-lg sm:text-xl font-semibold mb-3 text-green-600 dark:text-green-300">
-          Step 2: Select Target Platforms
+        <label className="block text-base font-bold mb-3 text-slate-800 dark:text-slate-200">
+          2. Target Platforms
         </label>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
           {PLATFORMS.map(({ name, icon: Icon }) => (
@@ -97,8 +97,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
       {/* Step 3, 4, 5 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8">
         <div>
-           <label htmlFor="campaignGoal" className="block text-lg sm:text-xl font-semibold mb-3 text-orange-600 dark:text-orange-300">
-            Step 3: Goal
+           <label htmlFor="campaignGoal" className="block text-base font-bold mb-3 text-slate-800 dark:text-slate-200">
+            3. Campaign Goal
           </label>
           <select
             id="campaignGoal"
@@ -110,8 +110,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
           </select>
         </div>
         <div>
-          <label htmlFor="tone" className="block text-lg sm:text-xl font-semibold mb-3 text-teal-600 dark:text-teal-300">
-            Step 4: Tone
+          <label htmlFor="tone" className="block text-base font-bold mb-3 text-slate-800 dark:text-slate-200">
+            4. Voice & Tone
           </label>
           <select
             id="tone"
@@ -123,8 +123,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
           </select>
         </div>
          <div>
-          <label htmlFor="postCount" className="block text-lg sm:text-xl font-semibold mb-3 text-pink-600 dark:text-pink-300">
-            Step 5: Posts
+          <label htmlFor="postCount" className="block text-base font-bold mb-3 text-slate-800 dark:text-slate-200">
+            5. Number of Posts
           </label>
            <input
             id="postCount"
