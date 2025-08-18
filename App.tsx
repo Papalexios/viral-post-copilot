@@ -26,6 +26,7 @@ const LOADING_MESSAGES = [
 ];
 
 export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress' | 'resources';
+export type Theme = 'light' | 'dark';
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -34,6 +35,7 @@ const App: React.FC = () => {
   const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
   const [campaignHistory, setCampaignHistory] = useState<ApiResponse[]>([]);
   const [activeView, setActiveView] = useState<ActiveView>('generator');
+  const [theme, setTheme] = useState<Theme>('dark');
   
   const [aiConfig, setAiConfig] = useState<AiConfig>({
       provider: AI_PROVIDERS[0].name,
@@ -50,12 +52,24 @@ const App: React.FC = () => {
   });
 
   useEffect(() => {
+    // Theme initialization
+    const savedTheme = localStorage.getItem('theme') as Theme | null;
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    const initialTheme = savedTheme || (prefersDark ? 'dark' : 'light');
+    setTheme(initialTheme);
+
+    if (initialTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+    
+    // Config initialization
     try {
       const savedAiConfig = localStorage.getItem('aiConfig');
       const savedWpConfig = localStorage.getItem('wordPressConfig');
       const savedHistory = localStorage.getItem('campaignHistory');
 
-      // AI Config Loading
       if (savedAiConfig) {
         const parsedConfig: AiConfig = JSON.parse(savedAiConfig);
         if (AI_PROVIDERS.some(p => p.name === parsedConfig.provider)) {
@@ -75,7 +89,6 @@ const App: React.FC = () => {
          localStorage.setItem('aiConfig', JSON.stringify(defaultConfig));
       }
       
-      // WordPress Config Loading
       if (savedWpConfig) {
         setWordPressConfig(JSON.parse(savedWpConfig));
       }
@@ -88,6 +101,19 @@ const App: React.FC = () => {
       localStorage.clear();
     }
   }, []);
+
+  const toggleTheme = () => {
+    setTheme(prevTheme => {
+        const newTheme = prevTheme === 'light' ? 'dark' : 'light';
+        localStorage.setItem('theme', newTheme);
+        if (newTheme === 'dark') {
+            document.documentElement.classList.add('dark');
+        } else {
+            document.documentElement.classList.remove('dark');
+        }
+        return newTheme;
+    });
+  };
   
   const handleSaveApiConfig = (newConfig: AiConfig) => {
     setAiConfig(newConfig);
@@ -363,12 +389,12 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
     // Default generator view
     if (isLoading) return <LoadingSpinner message={loadingMessage} />;
     if (error) return (
-       <div className="mt-8 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-center animate-fade-in">
+       <div className="mt-8 bg-red-100 dark:bg-red-900/50 border border-red-300 dark:border-red-700 text-red-700 dark:text-red-300 px-4 py-3 rounded-lg text-center animate-fade-in">
         <p className="font-bold">Error</p>
         <p>{error}</p>
         <button
           onClick={() => setError(null)}
-          className="mt-2 px-4 py-1 bg-red-600/50 text-white rounded-md hover:bg-red-500/50"
+          className="mt-2 px-4 py-1 bg-red-200 dark:bg-red-600/50 text-red-800 dark:text-white rounded-md hover:bg-red-300 dark:hover:bg-red-500/50"
         >
           Dismiss
         </button>
@@ -393,7 +419,7 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
           </div>
           {apiResponse.posts.length > 0 && (
             <div className="mt-12">
-              <h2 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 to-green-400">
+              <h2 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-cyan-500 to-green-500 dark:from-cyan-400 dark:to-green-400">
                 Generated Campaign Content
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -417,8 +443,10 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
   }
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
+    <div className="min-h-screen font-sans transition-colors duration-300">
       <Header 
+        theme={theme}
+        toggleTheme={toggleTheme}
         onToggleHistory={() => setActiveView('history')}
         onToggleApiConfig={() => setActiveView('config')}
         onToggleWordPressConfig={() => setActiveView('wordpress')}
@@ -430,8 +458,8 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
         </div>
       </main>
       <BottomNavBar activeView={activeView} setActiveView={setActiveView} />
-      <footer className="text-center py-6 text-slate-500 text-sm px-4">
-        <p>An AI Tool by <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-green-400 hover:underline">AffiliateMarketingForSuccess.com</a></p>
+      <footer className="text-center py-6 text-slate-500 dark:text-slate-500 text-sm px-4">
+        <p>An AI Tool by <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-green-600 dark:text-green-400 hover:underline">AffiliateMarketingForSuccess.com</a></p>
         <p className="mt-1">Learn more about <a href="https://affiliatemarketingforsuccess.com/blog/" target="_blank" rel="noopener noreferrer" className="hover:underline">Affiliate Marketing</a>, <a href="https://affiliatemarketingforsuccess.com/seo/" target="_blank" rel="noopener noreferrer" className="hover:underline">SEO</a>, and <a href="https://affiliatemarketingforsuccess.com/ai/" target="_blank" rel="noopener noreferrer" className="hover:underline">AI Content Generation</a>.</p>
       </footer>
     </div>

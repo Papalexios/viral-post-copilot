@@ -22,19 +22,19 @@ const NavItem: React.FC<{
     <button
       onClick={onClick}
       className={`relative flex flex-col items-center justify-center w-full pt-2 pb-1 transition-colors duration-200 ${
-        isActive ? 'text-green-400' : 'text-slate-400 hover:text-white'
+        isActive ? 'text-green-500 dark:text-green-400' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white'
       }`}
     >
-        {isActive && <div className="absolute top-0 h-0.5 w-full bg-green-400"></div>}
+        {isActive && <div className="absolute top-0 h-0.5 w-full bg-green-500 dark:bg-green-400"></div>}
         {icon}
-        <span className={`text-xs mt-1 font-medium ${isActive ? 'text-green-400' : 'text-slate-500'}`}>{label}</span>
+        <span className={`text-xs mt-1 font-medium ${isActive ? 'text-green-600 dark:text-green-400' : 'text-slate-500'}`}>{label}</span>
     </button>
 );
 
 
 export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeView, setActiveView }) => {
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-900/80 backdrop-blur-lg border-t border-slate-700/50 z-50 flex items-center justify-around">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/80 dark:bg-slate-900/80 backdrop-blur-lg border-t border-slate-200 dark:border-slate-700/50 z-50 flex items-center justify-around">
         <NavItem
             icon={<SparklesIcon className="w-6 h-6" />}
             label="New"
