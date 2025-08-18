@@ -1,13 +1,13 @@
 
-
-
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import type { GeneratedPost, PostVariation, Platform } from '../types';
 import { PLATFORMS } from '../constants';
 import { CopyIcon } from './icons/CopyIcon';
+import { CheckIcon } from './icons/CheckIcon';
 import { InfoIcon } from './icons/InfoIcon';
+import { WordPressIcon } from './icons/WordPressIcon';
+import { SkeletonLoader } from './SkeletonLoader';
 
-// Inlined SVG icons to avoid creating new files
 const RedoIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M23 4v6h-6"></path>
@@ -16,58 +16,35 @@ const RedoIcon: React.FC<{ className?: string }> = ({ className }) => (
 );
 
 const ShareIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg xmlns="http://www.w.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
     <polyline points="16 6 12 2 8 6"></polyline>
     <line x1="12" y1="2" x2="12" y2="15"></line>
   </svg>
 );
 
-
 interface PostCardProps {
   post: GeneratedPost;
   onRegenerate: () => void;
+  onPublish: (variationIndex: number) => void;
+  isWordPressConfigured: boolean;
 }
 
 const ViralScoreIndicator: React.FC<{ score: number }> = ({ score }) => {
-  const circumference = 2 * Math.PI * 20;
-  const offset = circumference - (score / 100) * circumference;
-  const color = score > 95 ? 'text-green-400' : score > 88 ? 'text-yellow-400' : 'text-orange-400';
-
+  const color = score > 95 ? 'bg-green-400/20 text-green-300 border-green-500/30' : score > 88 ? 'bg-yellow-400/20 text-yellow-300 border-yellow-500/30' : 'bg-orange-400/20 text-orange-300 border-orange-500/30';
   return (
-    <div className="relative flex items-center justify-center">
-      <svg className="w-12 h-12 transform -rotate-90">
-        <circle className="text-slate-700" strokeWidth="4" stroke="currentColor" fill="transparent" r="20" cx="24" cy="24" />
-        <circle
-          className={color}
-          strokeWidth="4"
-          strokeDasharray={circumference}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          stroke="currentColor"
-          fill="transparent"
-          r="20"
-          cx="24"
-          cy="24"
-          style={{ transition: 'stroke-dashoffset 0.5s ease-out' }}
-        />
-      </svg>
-      <span className={`absolute text-sm font-bold ${color}`}>{score}</span>
+    <div className={`text-sm font-bold px-3 py-1 rounded-full border ${color}`}>
+        {score}
     </div>
   );
 };
 
 const ImageDisplay: React.FC<{ post: GeneratedPost; onRegenerate: () => void; }> = ({ post, onRegenerate }) => {
   return (
-    <div className="relative aspect-square w-full rounded-lg group">
-      {post.imageIsLoading && (
-        <div className="absolute inset-0 bg-slate-900/50 flex flex-col items-center justify-center text-center p-4 rounded-lg z-10">
-          <div className="w-8 h-8 border-2 border-slate-600 border-t-purple-400 rounded-full animate-spin"></div>
-          <p className="mt-2 text-xs text-slate-400">Generating Image...</p>
-        </div>
-      )}
+    <div className="relative aspect-square w-full rounded-lg group overflow-hidden bg-slate-900">
+      {post.imageIsLoading && <SkeletonLoader />}
       {post.imageUrl && post.imageUrl !== 'error' && (
-        <img src={post.imageUrl} alt={post.image_prompt} className="aspect-square w-full object-cover rounded-lg" />
+        <img src={post.imageUrl} alt={post.image_prompt} className="aspect-square w-full object-cover rounded-lg animate-fade-in" />
       )}
       {post.imageUrl === 'error' && (
         <div className="absolute inset-0 bg-red-900/20 flex flex-col items-center justify-center text-center p-4 rounded-lg border border-red-800">
@@ -76,8 +53,8 @@ const ImageDisplay: React.FC<{ post: GeneratedPost; onRegenerate: () => void; }>
         </div>
       )}
       {!post.imageIsLoading && (
-        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
-          <button onClick={onRegenerate} className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 border border-slate-600 rounded-full text-white hover:bg-slate-700 transition-colors" aria-label="Regenerate Image">
+        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+          <button onClick={onRegenerate} className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 border border-slate-600 rounded-full text-white hover:bg-slate-700 transition-colors active:scale-95" aria-label="Regenerate Image">
             <RedoIcon className="w-4 h-4" />
             <span>Regenerate</span>
           </button>
@@ -130,6 +107,7 @@ const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation 
                             <p className="text-slate-500 text-xs">1,234 followers · 1h</p>
                         </div>
                     </div>
+                     <p className="my-3 text-slate-800 font-bold text-lg">{variation.post_title}</p>
                     <p className="my-3 text-slate-800 whitespace-pre-wrap">{variation.post_text}</p>
                      {post.imageUrl && post.imageUrl !== 'error' && <img src={post.imageUrl} className="rounded-lg" />}
                      <p className="text-slate-600 mt-3 font-semibold">{variation.call_to_action}</p>
@@ -154,10 +132,8 @@ const FunnelStageBadge: React.FC<{ stage?: string }> = ({ stage }) => {
     );
 };
 
-
-export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate }) => {
-  const [copiedStates, setCopiedStates] = useState<{ [key: number]: boolean }>({});
-  const [shareCopied, setShareCopied] = useState(false);
+export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublish, isWordPressConfigured }) => {
+  const [copyStates, setCopyStates] = useState<{ [key: string]: boolean }>({});
   const [showDetails, setShowDetails] = useState(false);
   const [activeVariationIndex, setActiveVariationIndex] = useState(0);
   const [viewMode, setViewMode] = useState<'content' | 'preview'>('content');
@@ -166,19 +142,45 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate }) => {
   const IconComponent = platformInfo?.icon;
   const activeVariation = post.variations[activeVariationIndex];
 
-  const handleCopyText = (text: string, index: number) => {
+  const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedStates(prev => ({ ...prev, [index]: true }));
-    setTimeout(() => setCopiedStates(prev => ({ ...prev, [index]: false })), 2000);
+    setCopyStates(prev => ({ ...prev, [id]: true }));
+    setTimeout(() => setCopyStates(prev => ({ ...prev, [id]: false })), 2000);
   };
   
-  const handleShare = () => {
-    const textToCopy = `${activeVariation.share_snippet}\n\n${activeVariation.post_text}\n\n---\n✨ Generated with Viral Post Co-pilot AI`;
-    navigator.clipboard.writeText(textToCopy);
-    setShareCopied(true);
-    setTimeout(() => setShareCopied(false), 2000);
+  const CopyButton: React.FC<{ text: string, id: string, label: string }> = ({ text, id, label }) => {
+    const isCopied = copyStates[id] || false;
+    return (
+        <button onClick={() => handleCopy(text, id)} className="relative group flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors active:scale-95">
+            {isCopied ? <CheckIcon className="w-4 h-4 text-green-400"/> : <CopyIcon className="w-4 h-4" />}
+            {isCopied ? 'Copied!' : 'Copy'}
+            <span className="absolute bottom-full mb-2 w-max bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">{label}</span>
+        </button>
+    );
   };
-  
+
+  const PublishButton: React.FC = () => {
+    if (!isWordPressConfigured || post.platform === 'Twitter' || post.platform === 'Instagram') return null;
+
+    const isDisabled = post.imageIsLoading || !post.imageUrl || post.imageUrl === 'error' || post.wordpressStatus === 'publishing';
+    
+    switch (post.wordpressStatus) {
+        case 'publishing':
+            return <button disabled className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-slate-700 text-slate-300 rounded-lg cursor-wait"><div className="w-4 h-4 border-2 border-slate-500 border-t-white rounded-full animate-spin"></div>Publishing...</button>;
+        case 'published':
+            return <a href={post.wordpressUrl} target="_blank" rel="noopener noreferrer" className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-green-600 hover:bg-green-500 text-white rounded-lg transition-colors">View Post</a>;
+        case 'error':
+             return (
+                <div className="w-full">
+                    <button onClick={() => onPublish(activeVariationIndex)} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors active:scale-95">Retry Publish</button>
+                    <p className="text-xs text-red-400 mt-1 text-center truncate" title={post.wordpressError}>{post.wordpressError}</p>
+                </div>
+            );
+        default: // idle
+            return <button onClick={() => onPublish(activeVariationIndex)} disabled={isDisabled} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-slate-600 hover:bg-slate-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"><WordPressIcon className="w-4 h-4" /> Publish to WordPress</button>;
+    }
+  };
+
 
   return (
     <div className="bg-slate-800/60 border border-slate-700 rounded-xl shadow-lg flex flex-col overflow-hidden transition-all duration-300 hover:border-purple-500/50 hover:shadow-purple-900/40">
@@ -198,8 +200,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate }) => {
         </div>
       </div>
        <div className="p-1.5 bg-slate-900/50 flex border-b border-slate-700">
-          <button onClick={() => setViewMode('content')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${viewMode === 'content' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-700/50'}`}>Content</button>
-          <button onClick={() => setViewMode('preview')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors ${viewMode === 'preview' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-700/50'}`}>Preview</button>
+          <button onClick={() => setViewMode('content')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'content' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-700/50'}`}>Content</button>
+          <button onClick={() => setViewMode('preview')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'preview' ? 'bg-purple-600 text-white' : 'text-slate-400 hover:bg-slate-700/50'}`}>Preview</button>
       </div>
 
       <div className="p-5 space-y-4 flex-grow">
@@ -209,16 +211,13 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate }) => {
           </div>
         ) : (
           <>
-            {/* Image Display */}
             <ImageDisplay post={post} onRegenerate={onRegenerate} />
-
-            {/* A/B Test Tabs */}
             <div className="flex bg-slate-900/50 border border-slate-700 rounded-lg p-1 space-x-1">
                 {post.variations.map((variation, index) => (
                     <button
                         key={index}
                         onClick={() => setActiveVariationIndex(index)}
-                        className={`w-full text-center px-3 py-2 rounded-md transition-colors duration-300 font-semibold text-sm ${
+                        className={`w-full text-center px-3 py-2 rounded-md transition-colors duration-300 font-semibold text-sm active:scale-95 ${
                             activeVariationIndex === index ? 'bg-purple-600 text-white' : 'text-slate-300 hover:bg-slate-700'
                         }`}
                     >
@@ -226,34 +225,30 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate }) => {
                     </button>
                 ))}
             </div>
-
-            {/* Post Content */}
             <div>
               <div className="flex justify-between items-center mb-2">
                 <h4 className="font-semibold text-purple-300">{activeVariation.variation_name}</h4>
                 <div className="flex items-center gap-4">
-                  <button onClick={handleShare} className="relative group flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors">
-                      <ShareIcon className="w-4 h-4" /> {shareCopied ? 'Copied!' : 'Share'}
-                      <span className="absolute bottom-full mb-2 w-max bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Copy share text</span>
-                  </button>
-                   <button onClick={() => handleCopyText(activeVariation.post_text, activeVariationIndex)} className="relative group flex items-center gap-1.5 text-xs text-slate-400 hover:text-white transition-colors">
-                      <CopyIcon className="w-4 h-4" /> {copiedStates[activeVariationIndex] ? 'Copied!' : 'Copy'}
-                       <span className="absolute bottom-full mb-2 w-max bg-slate-900 text-white text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">Copy post text only</span>
-                  </button>
+                    <CopyButton text={activeVariation.post_title} id={`title-${activeVariationIndex}`} label="Copy Title" />
+                    <CopyButton text={activeVariation.post_text} id={`post-${activeVariationIndex}`} label="Copy Body Text" />
                 </div>
               </div>
-              <p className="text-slate-300 bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap">{activeVariation.post_text}</p>
+              <h5 className="text-slate-200 font-bold bg-slate-900/50 p-3 rounded-md text-base">{activeVariation.post_title}</h5>
+              <p className="text-slate-300 bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap mt-2">{activeVariation.post_text}</p>
               <p className="text-slate-400 mt-2 text-xs italic"><strong>CTA:</strong> {activeVariation.call_to_action}</p>
             </div>
           </>
         )}
       </div>
-      <div className="p-5 border-t border-slate-700/50">
-        <button onClick={() => setShowDetails(!showDetails)} className="w-full flex items-center justify-center gap-2 text-xs text-slate-400 hover:text-white transition-colors py-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700">
+
+      <div className="p-4 bg-slate-900/30 border-t border-slate-700/50 space-y-4">
+          <PublishButton />
+          <button onClick={() => setShowDetails(s => !s)} className="w-full flex items-center justify-center gap-2 text-xs text-slate-400 hover:text-white transition-colors py-2 bg-slate-800 rounded-lg border border-slate-700 hover:bg-slate-700 active:scale-95">
             <InfoIcon className="w-4 h-4" />
             <span>{showDetails ? 'Hide' : 'Show'} Full Analysis</span>
+            <svg className={`w-4 h-4 transition-transform ${showDetails ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
         </button>
-        {showDetails && (
+        <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showDetails ? 'max-h-96 opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="mt-4 space-y-4 pt-4 border-t border-slate-700/50">
                 <div>
                     <h4 className="font-semibold text-cyan-300 mb-2">A/B Test Rationale</h4>
@@ -264,7 +259,7 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate }) => {
                     <p className="text-slate-400 text-xs italic bg-slate-900/50 p-3 rounded-md font-mono">{post.image_prompt}</p>
                 </div>
             </div>
-        )}
+        </div>
       </div>
     </div>
   );

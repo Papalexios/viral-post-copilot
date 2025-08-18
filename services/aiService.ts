@@ -47,16 +47,15 @@ Your content must be engineered to rank and be discovered by answering user inte
 PHASE 3: STRATEGIC CONTENT & A/B TEST ARCHITECTURE
 For each of the ${postCount} posts, architect a post object. Inside, create TWO strategic variations (A/B test) in the 'variations' array.
 - The variations MUST test distinct psychological triggers. Example: Variation A uses a 'Credibility/Data' hook, while Variation B uses a 'Storytelling/Emotional' angle.
-- Each variation must be complete with its own 'variation_name' (e.g., "A: Data-Driven Authority"), 'post_text', a low-friction 'call_to_action', AND a 'share_snippet'. The 'share_snippet' is a critical, short, compelling sentence or question designed to maximize organic sharing by providing value.
+- Each variation must be complete with its own 'variation_name' (e.g., "A: Data-Driven Authority"), a compelling, SEO-friendly 'post_title' (under 70 characters), 'post_text', a low-friction 'call_to_action', AND a 'share_snippet'. The 'share_snippet' is a critical, short, compelling sentence or question designed to maximize organic sharing by providing value.
 
 PHASE 4: PLATFORM-NATIVE OPTIMIZATION & AUTHORITY ENGINEERING
 - For each post, explicitly state its 'funnel_stage' ('Awareness', 'Engagement', or 'Conversion').
 - Every post MUST integrate mechanics that build authority: Verifiable claims, unique data points, immense practical value, and clear, logical storytelling. The goal is trust, not just clicks.
-- FACEBOOK: 40-80 words, high credibility, cite a surprising fact or data point. 3-5 high-volume hashtags.
-- INSTAGRAM: 30-50 words, create a value-packed carousel or infographic concept, use 8-15 hashtags (mix of popular & niche).
-- PINTEREST: 20-40 words, use strong SEO keywords focused on "how-to" or "ultimate guide" queries, have a direct CTA to a high-value resource.
-- LINKEDIN: 150-250 words, professional tone, present a well-reasoned, data-backed argument or unique industry insight. Use 3-5 targeted professional hashtags.
-- TWITTER (X): Under 280 characters, lead with a powerful, verifiable statistic or a myth-busting statement. Use 2-3 hyper-relevant hashtags. Create a thread-worthy hook.
+- FACEBOOK/LINKEDIN (Blog Style): The 'post_title' is the headline. The 'post_text' is the body. The text should be well-structured. 150-300 words.
+- INSTAGRAM: The 'post_title' is the hook for the caption. The 'post_text' is the main caption. 30-50 words, create a value-packed carousel or infographic concept.
+- PINTEREST: The 'post_title' IS the Pin Title. The 'post_text' is the description. Use strong SEO keywords.
+- TWITTER (X): The 'post_title' is the powerful hook. The 'post_text' elaborates. Under 280 characters total.
 
 PHASE 5: AUTHORITY-BUILDING IMAGE PROMPTS
 Generate one hyper-detailed, art-directed image prompt per post. The prompt must visually communicate credibility and value. Think 'data visualization, minimalist style', 'photorealistic product in a clean, professional setting', 'expert portrait, confident expression, dramatic lighting'. Avoid generic stock photos.
@@ -95,6 +94,7 @@ const responseSchema = {
                 type: Type.OBJECT,
                 properties: {
                     variation_name: { type: Type.STRING },
+                    post_title: { type: Type.STRING },
                     post_text: { type: Type.STRING },
                     call_to_action: { type: Type.STRING },
                     share_snippet: { type: Type.STRING },
@@ -220,13 +220,11 @@ async function* generateWithGemini(formData: InputFormData, config: AiConfig): A
     const ai = new GoogleGenAI({ apiKey });
     const prompt = generateAdvancedPrompt(formData, config.provider);
 
-    // Explicitly define the generation config based on the input mode
-    // to prevent sending mutually exclusive parameters (tools vs. responseMimeType).
     const generationConfig = formData.inputMode === InputMode.Topic
-      ? { // Config for Topic mode: Use Google Search, do not enforce JSON output via API.
+      ? { 
           tools: [{ googleSearch: {} }],
         }
-      : { // Config for URL/Sitemap mode: Enforce strict JSON output, do not use tools.
+      : { 
           responseMimeType: "application/json",
           responseSchema: responseSchema,
         };
@@ -258,20 +256,16 @@ const generateImageWithGemini = async (prompt: string, apiKey: string): Promise<
             config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' },
         });
 
-        // Defensive validation of the response structure
         if (!response?.generatedImages?.[0]?.image?.imageBytes) {
             console.error("Invalid response structure from Gemini image API:", response);
-            // It's possible the prompt was blocked by safety filters without throwing an error
             throw new Error("The API returned an unexpected or empty response. The prompt may have been blocked by safety filters.");
         }
 
         return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
     } catch (error: any) {
         console.error("Error generating image with Gemini:", error);
-        // Create a more user-friendly error message
         let errorMessage = "An error occurred during image generation.";
         if (error.message) {
-            // The SDK often includes details in the message
             errorMessage = error.message;
         }
         if (errorMessage.includes("API key not valid")) {
@@ -339,8 +333,6 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
         'Content-Type': 'application/json',
     };
 
-    // Add provider-specific headers required for client-side requests to OpenRouter.
-    // 'Referer' and 'X-Title' help bypass their proxy/firewall, which can cause 405 errors.
     if (isOpenRouter) {
         headers['Referer'] = `https://${location.hostname}`;
         headers['X-Title'] = 'Viral Post Co-pilot AI';
@@ -360,7 +352,6 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
         });
 
         if (!response.ok) {
-            // The error body might be empty, so handle that gracefully.
             const errorBody = await response.text().catch(() => '');
             let errorMessage = `API Error (${response.status}): ${response.statusText || 'No status text'}.`;
 
@@ -380,7 +371,6 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
             if (response.status === 401) {
                 errorMessage += " Please check if your API key is correct and your account has sufficient credits.";
             }
-            // Add specific advice for the 405 error
             if (response.status === 405) {
                 errorMessage += " This error often indicates a proxy or CORS issue. Ensure the API provider allows client-side requests from this origin."
             }
@@ -398,7 +388,6 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
         return `data:image/jpeg;base64,${data.data[0].b64_json}`;
 
     } catch (error: any) {
-        // Re-throw with a consistent, provider-specific error message format.
         console.error(`Error during ${providerName} image generation:`, error);
         throw new Error(`[${providerName} Image Generation] ${error.message}`);
     }
@@ -444,18 +433,14 @@ function getOpenApiRequestConfig(formData: InputFormData, config: AiConfig) {
 // #region Utilities
 function* parseAndYieldFullJson(responseString: string): Generator<StreamChunk, void, unknown> {
     if (!responseString || responseString.trim() === '') {
-        // Model returned nothing. The calling function in App.tsx will handle this.
         return;
     }
     
     try {
-        // Find a JSON object or array within the string. This handles cases where the model
-        // adds conversational text before or after the JSON block.
         const match = responseString.match(/```json\s*([\s\S]+?)\s*```|({[\s\S]+}|\[[\s\S]+\])/);
 
         if (!match) {
             console.error("No valid JSON object or array found in the AI response.", "Raw Response:", responseString);
-            // Throw a more informative error if there's text but no JSON.
             throw new Error(`The AI returned a non-JSON response. Raw output: "${responseString.trim()}"`);
         }
 
@@ -480,7 +465,6 @@ function* parseAndYieldFullJson(responseString: string): Generator<StreamChunk, 
         }
         
         if (!yieldedData) {
-            // This is the case that leads to the "no content" error. The JSON is valid but empty of our data.
             console.warn("Parsed JSON was valid but did not contain 'topic_analysis' or 'posts'.", parsedData);
         }
 

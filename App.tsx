@@ -1,6 +1,4 @@
 
-
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
@@ -9,8 +7,11 @@ import { LoadingSpinner } from './components/LoadingSpinner';
 import { AnalysisDisplay } from './components/AnalysisDisplay';
 import { CampaignHistory } from './components/CampaignHistory';
 import { ApiConfigurator } from './components/ApiConfigurator';
-import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig } from './types';
+import { WordPressConfigurator } from './components/WordPressConfigurator';
+import { BottomNavBar } from './components/BottomNavBar';
+import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig, type WordPressConfig } from './types';
 import { generateViralPostsStream, generateImageFromPrompt } from './services/aiService';
+import { publishPostToWordPress } from './services/wordpressService';
 import { AI_PROVIDERS } from './constants';
 
 const LOADING_MESSAGES = [
@@ -23,14 +24,15 @@ const LOADING_MESSAGES = [
   "Finalizing viral strategy...",
 ];
 
+export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress';
+
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
   const [error, setError] = useState<string | null>(null);
   const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
   const [campaignHistory, setCampaignHistory] = useState<ApiResponse[]>([]);
-  const [showHistory, setShowHistory] = useState<boolean>(false);
-  const [isApiConfigOpen, setIsApiConfigOpen] = useState<boolean>(false);
+  const [activeView, setActiveView] = useState<ActiveView>('generator');
   
   const [aiConfig, setAiConfig] = useState<AiConfig>({
       provider: AI_PROVIDERS[0].name,
@@ -38,31 +40,43 @@ const App: React.FC = () => {
       model: AI_PROVIDERS[0].defaultModel,
       isValidated: false,
   });
+  
+  const [wordPressConfig, setWordPressConfig] = useState<WordPressConfig>({
+      url: '',
+      username: '',
+      password: '',
+      isValidated: false,
+  });
 
-  // Load settings from localStorage on initial render
   useEffect(() => {
     try {
-      const savedConfig = localStorage.getItem('aiConfig');
+      const savedAiConfig = localStorage.getItem('aiConfig');
+      const savedWpConfig = localStorage.getItem('wordPressConfig');
       const savedHistory = localStorage.getItem('campaignHistory');
 
-      if (savedConfig) {
-        const parsedConfig: AiConfig = JSON.parse(savedConfig);
-        // Ensure provider exists, otherwise default
+      // AI Config Loading
+      if (savedAiConfig) {
+        const parsedConfig: AiConfig = JSON.parse(savedAiConfig);
         if (AI_PROVIDERS.some(p => p.name === parsedConfig.provider)) {
           setAiConfig(parsedConfig);
+           if (!parsedConfig.isValidated) setActiveView('config');
         } else {
-            handleSaveApiConfig(aiConfig); // save default
+            handleSaveApiConfig(aiConfig);
         }
       } else {
-         // If no config, default to Gemini (which is pre-configured)
          const defaultConfig: AiConfig = {
             provider: AiProvider.Gemini,
             apiKey: '',
             model: 'gemini-2.5-flash',
-            isValidated: true, // Gemini is pre-configured
+            isValidated: true,
          };
          setAiConfig(defaultConfig);
          localStorage.setItem('aiConfig', JSON.stringify(defaultConfig));
+      }
+      
+      // WordPress Config Loading
+      if (savedWpConfig) {
+        setWordPressConfig(JSON.parse(savedWpConfig));
       }
 
       if (savedHistory) {
@@ -70,7 +84,7 @@ const App: React.FC = () => {
       }
     } catch (e) {
       console.error("Failed to load settings from localStorage", e);
-      localStorage.clear(); // Clear corrupted storage
+      localStorage.clear();
     }
   }, []);
   
@@ -82,7 +96,19 @@ const App: React.FC = () => {
         console.error("Failed to save AI config to localStorage", e);
     }
     if (newConfig.isValidated) {
-        setIsApiConfigOpen(false);
+        setActiveView('generator');
+    }
+  };
+  
+  const handleSaveWordPressConfig = (newConfig: WordPressConfig) => {
+    setWordPressConfig(newConfig);
+    try {
+        localStorage.setItem('wordPressConfig', JSON.stringify(newConfig));
+    } catch (e) {
+        console.error("Failed to save WordPress config to localStorage", e);
+    }
+    if (newConfig.isValidated) {
+        setActiveView('generator');
     }
   };
 
@@ -125,7 +151,7 @@ const App: React.FC = () => {
 
   const loadCampaign = (campaign: ApiResponse) => {
     setApiResponse(campaign);
-    setShowHistory(false);
+    setActiveView('generator');
   }
 
   const generateAllImages = async (posts: GeneratedPost[], currentCampaign: ApiResponse) => {
@@ -137,7 +163,7 @@ const App: React.FC = () => {
           setApiResponse(prev => {
             if (!prev) return null;
             const newPosts = [...prev.posts];
-            newPosts[index] = { ...newPosts[index], imageUrl, imageIsLoading: false };
+            newPosts[index] = { ...newPosts[index], imageUrl, imageIsLoading: false, wordpressStatus: 'idle' };
             updatedCampaign = { ...prev, posts: newPosts };
             return updatedCampaign;
           });
@@ -166,7 +192,7 @@ const App: React.FC = () => {
     setApiResponse(prev => {
         if (!prev) return null;
         const newPosts = [...prev.posts];
-        newPosts[postIndex] = { ...newPosts[postIndex], imageIsLoading: true, imageUrl: undefined };
+        newPosts[postIndex] = { ...newPosts[postIndex], imageIsLoading: true, imageUrl: undefined, wordpressStatus: 'idle' };
         return { ...prev, posts: newPosts };
     });
 
@@ -190,12 +216,53 @@ const App: React.FC = () => {
         });
     }
 };
+
+const handlePublishToWordPress = async (postIndex: number, variationIndex: number) => {
+    if (!apiResponse || !wordPressConfig.isValidated) {
+        if (!wordPressConfig.isValidated) {
+            setError("WordPress Configuration is not validated. Please check your settings.");
+            setActiveView('wordpress');
+        }
+        return;
+    }
+
+    const postToPublish = { ...apiResponse.posts[postIndex] };
+    
+    setApiResponse(prev => {
+        if (!prev) return null;
+        const newPosts = [...prev.posts];
+        newPosts[postIndex] = { ...newPosts[postIndex], wordpressStatus: 'publishing', wordpressError: undefined };
+        return { ...prev, posts: newPosts };
+    });
+
+    try {
+        const postUrl = await publishPostToWordPress(postToPublish, variationIndex, wordPressConfig);
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            newPosts[postIndex] = { ...newPosts[postIndex], wordpressStatus: 'published', wordpressUrl: postUrl };
+            const finalCampaign = { ...prev, posts: newPosts };
+            saveCampaignToHistory(finalCampaign);
+            return finalCampaign;
+        });
+    } catch (err: any) {
+        console.error("WordPress publishing error:", err);
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            newPosts[postIndex] = { ...newPosts[postIndex], wordpressStatus: 'error', wordpressError: err.message };
+            const finalCampaign = { ...prev, posts: newPosts };
+            saveCampaignToHistory(finalCampaign);
+            return finalCampaign;
+        });
+    }
+};
   
   const handleGenerate = useCallback(async (formData: InputFormData) => {
     if (isLoading || !aiConfig.isValidated) {
       if (!aiConfig.isValidated) {
         setError("API Configuration is not validated. Please check your settings.");
-        setIsApiConfigOpen(true);
+        setActiveView('config');
       }
       return;
     }
@@ -204,7 +271,6 @@ const App: React.FC = () => {
     setApiResponse(null);
 
     const campaignId = `campaign_${Date.now()}`;
-    // Create a mutable object to hold the response as it builds
     let finalResponse: ApiResponse = {
       id: campaignId,
       campaignTitle: formData.topic || formData.sourceUrl,
@@ -219,7 +285,6 @@ const App: React.FC = () => {
       posts: [],
     };
 
-    // Set initial state for the UI
     setApiResponse(finalResponse);
 
     try {
@@ -229,13 +294,11 @@ const App: React.FC = () => {
         if (chunk.type === 'analysis') {
           finalResponse.topic_analysis = chunk.data;
         } else if (chunk.type === 'post') {
-          const newPost: GeneratedPost = { ...chunk.data, imageIsLoading: true };
+          const newPost: GeneratedPost = { ...chunk.data, imageIsLoading: true, wordpressStatus: 'idle' };
           finalResponse.posts.push(newPost);
         } else if (chunk.type === 'grounding') {
           finalResponse.groundingMetadata = chunk.data;
         }
-
-        // Update the UI with a new object to trigger re-render
         setApiResponse({ ...finalResponse, posts: [...finalResponse.posts] });
       }
 
@@ -250,7 +313,6 @@ const App: React.FC = () => {
           await generateAllImages(finalResponse.posts, finalResponse);
         }
       } else {
-        // Only throw an error if we received no meaningful content at all.
         throw new Error("Generation process did not produce any content. The AI model may have returned an empty response.");
       }
 
@@ -258,85 +320,112 @@ const App: React.FC = () => {
       console.error(err);
       setError(err.message || 'An unexpected error occurred. Please try again.');
       setIsLoading(false);
-      setApiResponse(null); // Clear partial results from UI on error
+      setApiResponse(null);
     }
   }, [isLoading, aiConfig]);
   
   const hasResults = useMemo(() => apiResponse && (apiResponse.posts.length > 0 || apiResponse.topic_analysis.campaign_strategy !== "Analyzing topic and formulating strategy..."), [apiResponse]);
-  const showInputForm = !hasResults && !isLoading && aiConfig.isValidated && !isApiConfigOpen;
+  
+  const renderContent = () => {
+    // Mobile view switching
+    if (activeView === 'history') {
+      return (
+         <CampaignHistory 
+            history={campaignHistory}
+            onLoad={loadCampaign}
+            onDelete={deleteCampaign}
+          />
+      );
+    }
+    if (activeView === 'config' || !aiConfig.isValidated) {
+      return (
+          <ApiConfigurator
+            currentConfig={aiConfig}
+            onSave={handleSaveApiConfig}
+            onClose={() => setActiveView('generator')}
+          />
+      );
+    }
+     if (activeView === 'wordpress') {
+      return (
+          <WordPressConfigurator
+            currentConfig={wordPressConfig}
+            onSave={handleSaveWordPressConfig}
+            onClose={() => setActiveView('generator')}
+          />
+      );
+    }
+
+    // Default generator view
+    if (isLoading) return <LoadingSpinner message={loadingMessage} />;
+    if (error) return (
+       <div className="mt-8 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-center animate-fade-in">
+        <p className="font-bold">Error</p>
+        <p>{error}</p>
+        <button
+          onClick={() => setError(null)}
+          className="mt-2 px-4 py-1 bg-red-600/50 text-white rounded-md hover:bg-red-500/50"
+        >
+          Dismiss
+        </button>
+      </div>
+    );
+
+    if (hasResults && apiResponse) {
+      return (
+        <div className="animate-fade-in">
+          <button 
+            onClick={() => {
+              setApiResponse(null);
+              setError(null);
+              if (!aiConfig.isValidated) setActiveView('config');
+            }} 
+            className="mb-6 w-full text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-pink-600 to-orange-500 hover:from-pink-500 hover:to-orange-400 text-white transform hover:scale-105 active:scale-100"
+          >
+            Create New Campaign
+          </button>
+          <div className="mt-4">
+            <AnalysisDisplay analysis={apiResponse.topic_analysis} groundingMetadata={apiResponse.groundingMetadata} />
+          </div>
+          {apiResponse.posts.length > 0 && (
+            <div className="mt-12">
+              <h2 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400">
+                Generated Campaign Content
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {apiResponse.posts.map((post, index) => (
+                  <PostCard 
+                    key={`${apiResponse.id}-${index}`} 
+                    post={post} 
+                    onRegenerate={() => regenerateImageForPost(index)}
+                    onPublish={(variationIndex) => handlePublishToWordPress(index, variationIndex)}
+                    isWordPressConfigured={wordPressConfig.isValidated}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      );
+    }
+    
+    return <InputForm onGenerate={handleGenerate} isLoading={isLoading} />;
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 font-sans">
       <Header 
-        onToggleHistory={() => setShowHistory(prev => !prev)} 
-        onToggleApiConfig={() => setIsApiConfigOpen(prev => !prev)}
+        onToggleHistory={() => setActiveView('history')}
+        onToggleApiConfig={() => setActiveView('config')}
+        onToggleWordPressConfig={() => setActiveView('wordpress')}
       />
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto px-2 sm:px-4 py-8 pb-24 md:pb-8">
         <div className="max-w-4xl mx-auto">
-          <CampaignHistory 
-            isOpen={showHistory}
-            history={campaignHistory}
-            onLoad={loadCampaign}
-            onDelete={deleteCampaign}
-            onClose={() => setShowHistory(false)}
-          />
-
-          {(isApiConfigOpen || !aiConfig.isValidated) && (
-              <ApiConfigurator
-                currentConfig={aiConfig}
-                onSave={handleSaveApiConfig}
-              />
-          )}
-
-          {showInputForm && <InputForm onGenerate={handleGenerate} isLoading={isLoading} />}
-          
-          {isLoading && <LoadingSpinner message={loadingMessage} />}
-          
-          {error && (
-            <div className="mt-8 bg-red-900/50 border border-red-700 text-red-300 px-4 py-3 rounded-lg text-center">
-              <p className="font-bold">Error</p>
-              <p>{error}</p>
-            </div>
-          )}
-          
-          {hasResults && apiResponse && (
-            <div className="animate-fade-in">
-              <button 
-                onClick={() => {
-                  setApiResponse(null);
-                  setError(null);
-                  if (!aiConfig.isValidated) setIsApiConfigOpen(true);
-                }} 
-                className="mb-8 w-full text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-pink-600 to-orange-500 hover:from-pink-500 hover:to-orange-400 text-white transform hover:scale-105"
-              >
-                Create New Campaign
-              </button>
-
-              <div className="mt-4">
-                <AnalysisDisplay analysis={apiResponse.topic_analysis} groundingMetadata={apiResponse.groundingMetadata} />
-              </div>
-
-              {apiResponse.posts.length > 0 && (
-                <div className="mt-12">
-                  <h2 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-purple-400 to-cyan-400">
-                    Generated Campaign Content
-                  </h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {apiResponse.posts.map((post, index) => (
-                      <PostCard 
-                        key={`${apiResponse.id}-${index}`} 
-                        post={post} 
-                        onRegenerate={() => regenerateImageForPost(index)}
-                      />
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          {renderContent()}
         </div>
       </main>
-      <footer className="text-center py-6 text-slate-500 text-sm">
+      <BottomNavBar activeView={activeView} setActiveView={setActiveView} />
+      <footer className="hidden md:block text-center py-6 text-slate-500 text-sm">
         <p>Powered by AI. Built by a World-Class Senior Frontend Engineer.</p>
       </footer>
     </div>

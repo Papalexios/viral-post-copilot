@@ -1,5 +1,6 @@
 
 
+
 export enum Platform {
   Facebook = 'Facebook',
   Instagram = 'Instagram',
@@ -38,10 +39,13 @@ export interface ViralBreakdown {
 
 export interface PostVariation {
     variation_name: string;
+    post_title: string;
     post_text: string;
     call_to_action: string;
     share_snippet: string;
 }
+
+export type WordPressPostStatus = 'idle' | 'publishing' | 'published' | 'error';
 
 export interface GeneratedPost {
   platform: Platform;
@@ -55,6 +59,10 @@ export interface GeneratedPost {
   // New fields for image generation status
   imageUrl?: string;
   imageIsLoading?: boolean;
+  // New fields for WordPress publishing
+  wordpressStatus: WordPressPostStatus;
+  wordpressUrl?: string;
+  wordpressError?: string;
 }
 
 export interface TopicAnalysis {
@@ -109,5 +117,12 @@ export interface AiConfig {
     provider: AiProvider;
     apiKey: string;
     model: string;
+    isValidated: boolean;
+}
+
+export interface WordPressConfig {
+    url: string;
+    username: string;
+    password: string; // Application Password
     isValidated: boolean;
 }
