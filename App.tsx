@@ -1,4 +1,6 @@
 
+
+
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { InputForm } from './components/InputForm';
@@ -15,6 +17,10 @@ import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, t
 import { generateViralPostsStream, generateImageFromPrompt } from './services/aiService';
 import { publishPostToWordPress } from './services/wordpressService';
 import { AI_PROVIDERS } from './constants';
+import { ShieldCheckIcon } from './components/icons/ShieldCheckIcon';
+import { BrainCircuitIcon } from './components/icons/BrainCircuitIcon';
+import { ClipboardCopyIcon } from './components/icons/ClipboardCopyIcon';
+import { MobileViewIcon } from './components/icons/MobileViewIcon';
 
 const LOADING_MESSAGES = [
   "Querying AI for the latest trends...",
@@ -28,6 +34,76 @@ const LOADING_MESSAGES = [
 
 export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress' | 'resources';
 export type Theme = 'light' | 'dark';
+
+const FeatureCard: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = ({ icon, title, children }) => (
+  <div className="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-700/50 transition-all duration-300 hover:shadow-xl hover:border-green-400/50 dark:hover:border-green-500/50 hover:-translate-y-1">
+    <div className="flex items-center gap-4">
+      <div className="bg-green-100 dark:bg-green-900/40 p-3 rounded-lg text-green-600 dark:text-green-300">
+        {icon}
+      </div>
+      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">{title}</h3>
+    </div>
+    <p className="mt-3 text-slate-600 dark:text-slate-300 text-sm leading-relaxed">{children}</p>
+  </div>
+);
+
+const TestimonialCard: React.FC<{ quote: string; author: string; role: string; }> = ({ quote, author, role }) => (
+  <figure className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-lg border border-slate-200 dark:border-slate-700/50">
+    <blockquote className="text-slate-700 dark:text-slate-300 italic">
+      <p>"{quote}"</p>
+    </blockquote>
+    <figcaption className="mt-4 text-right">
+      <p className="font-semibold text-slate-800 dark:text-slate-100">{author}</p>
+      <p className="text-sm text-slate-500 dark:text-slate-400">{role}</p>
+    </figcaption>
+  </figure>
+);
+
+const SharedContent: React.FC = () => (
+    <div className="space-y-24 md:space-y-32 animate-fade-in">
+        {/* Features Section */}
+        <section>
+            <div className="text-center">
+                <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300">The Sizzle That Sets Us Apart</h2>
+                <p className="mt-3 max-w-xl mx-auto text-slate-600 dark:text-slate-400">Exclusive, industry-leading features designed for professional affiliate marketers.</p>
+            </div>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <FeatureCard icon={<ShieldCheckIcon className="w-6 h-6"/>} title="Credibility Engine">
+                    Every claim is fact-checked against real-time data, building unshakable trust with your audience.
+                </FeatureCard>
+                <FeatureCard icon={<BrainCircuitIcon className="w-6 h-6"/>} title="Viral Strategy AI">
+                    Goes beyond simple prompts to analyze trends and build a complete campaign strategy with defined goals.
+                </FeatureCard>
+                <FeatureCard icon={<ClipboardCopyIcon className="w-6 h-6"/>} title="A/B Test Variations">
+                    Generates multiple post variations testing different psychological triggers to see what resonates.
+                </FeatureCard>
+                <FeatureCard icon={<MobileViewIcon className="w-6 h-6"/>} title="Platform-Native Formatting">
+                    Content is perfectly formatted for each social network, complete with emojis, markdown, and platform-specific hooks.
+                </FeatureCard>
+            </div>
+        </section>
+
+        {/* Social Proof */}
+        <section>
+            <div className="text-center">
+                <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300">Trusted by Marketing Professionals</h2>
+            </div>
+            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
+                <TestimonialCard 
+                    quote="I was tired of the same old AI fluff. This tool's focus on credible, fact-checked content has been a game-changer for my blog's authority."
+                    author="Sarah J."
+                    role="SEO Consultant"
+                />
+                <TestimonialCard 
+                    quote="The strategic analysis is what sold me. It's not just a writer; it's a marketing partner. My engagement rates have doubled."
+                    author="Mike R."
+                    role="Niche Site Owner"
+                />
+            </div>
+        </section>
+    </div>
+);
+
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
@@ -415,6 +491,18 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
           >
             Create New Campaign
           </button>
+
+          <div className="my-8 text-center">
+            <a
+              href="https://viral-post.affiliatemarketingforsuccess.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block text-base md:text-lg font-bold py-4 px-6 rounded-lg transition-all duration-300 bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 hover:from-yellow-400 hover:via-orange-400 hover:to-red-400 text-white transform hover:scale-105 active:scale-100 shadow-lg hover:shadow-2xl"
+            >
+              Dominate Your Niche – Unlock Your Complete AI-Powered SEO Arsenal
+            </a>
+          </div>
+          
           <div className="mt-4">
             <AnalysisDisplay analysis={apiResponse.topic_analysis} groundingMetadata={apiResponse.groundingMetadata} />
           </div>
@@ -444,7 +532,7 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
   }
 
   return (
-    <div className="min-h-screen font-sans transition-colors duration-300">
+    <div className="min-h-screen font-sans transition-colors duration-300 flex flex-col">
       <Header 
         isLandingPage={!hasResults}
         theme={theme}
@@ -454,11 +542,20 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
         onToggleWordPressConfig={() => setActiveView('wordpress')}
         onToggleResources={() => setActiveView('resources')}
       />
-      <main className="container mx-auto px-2 sm:px-4 py-8 pb-24 md:pb-8">
+      <main className="container mx-auto px-2 sm:px-4 py-8 pb-24 md:pb-8 flex-grow">
         <div className="max-w-4xl mx-auto">
           {renderContent()}
         </div>
       </main>
+
+      {!hasResults && activeView === 'generator' && (
+          <div className="container mx-auto px-2 sm:px-4 pb-16">
+              <div className="max-w-4xl mx-auto">
+                  <SharedContent />
+              </div>
+          </div>
+      )}
+      
       <BottomNavBar activeView={activeView} setActiveView={setActiveView} />
       <footer className="text-center py-6 text-slate-500 dark:text-slate-500 text-sm px-4">
         <p>An AI Tool by <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-green-600 dark:text-green-400 hover:underline">AffiliateMarketingForSuccess.com</a></p>
