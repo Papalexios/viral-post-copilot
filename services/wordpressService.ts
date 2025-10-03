@@ -74,14 +74,14 @@ const uploadImageToWordPress = async (imageUrl: string, config: WordPressConfig)
 };
 
 export const publishPostToWordPress = async (post: GeneratedPost, variationIndex: number, config: WordPressConfig): Promise<string> => {
-    if (!post.imageUrl) throw new Error('Post has no image to publish.');
+    if (!post.imageDataUrl) throw new Error('Post has no image data to publish.');
     
     const url = new URL(config.url);
     const apiUrl = `${url.origin}/wp-json/wp/v2/posts`;
     const variation = post.variations[variationIndex];
     
     // 1. Upload image and get media ID
-    const featuredMediaId = await uploadImageToWordPress(post.imageUrl, config);
+    const featuredMediaId = await uploadImageToWordPress(post.imageDataUrl, config);
 
     // 2. Create the post
     const postData = {

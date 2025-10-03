@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { HistoryIcon } from './icons/HistoryIcon';
 import { KeyIcon } from './icons/KeyIcon';
@@ -66,12 +65,15 @@ export const Header: React.FC<HeaderProps> = (props) => {
         return (
             <header className="sticky top-0 z-40 w-full backdrop-blur-sm bg-white/80 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700/50">
                 <div className="container mx-auto px-4 h-16 flex items-center justify-between">
-                    <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 group">
-                        <LogoIcon className="w-8 h-8 text-green-500 dark:text-green-400 group-hover:text-green-600 dark:group-hover:text-green-300 transition-colors" />
-                         <p className="font-semibold text-slate-700 dark:text-slate-200 group-hover:text-slate-900 dark:group-hover:text-slate-100 transition-colors">
-                           <span className="font-light hidden sm:inline">AI Co-pilot by</span> AffiliateMarketingForSuccess.com
-                        </p>
-                    </a>
+                    <div className="flex items-center gap-3">
+                        <LogoIcon className="w-10 h-10 text-green-500 dark:text-green-400" />
+                        <div>
+                            <h2 className="text-lg font-bold text-slate-800 dark:text-slate-100">AI Content Co-pilot</h2>
+                            <p className="text-xs text-slate-500 dark:text-slate-400">
+                                From the creators of <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-slate-600 dark:text-slate-300 hover:text-green-600 dark:hover:text-green-400 transition-colors">AffiliateMarketingForSuccess.com</a>
+                            </p>
+                        </div>
+                    </div>
                     <div className="hidden md:flex">
                         <HeaderActions {...props} />
                     </div>

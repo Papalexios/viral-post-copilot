@@ -1,9 +1,5 @@
-
-
-
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
-import { InputForm } from './components/InputForm';
 import { PostCard } from './components/PostCard';
 import { LoadingSpinner } from './components/LoadingSpinner';
 import { AnalysisDisplay } from './components/AnalysisDisplay';
@@ -17,10 +13,7 @@ import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, t
 import { generateViralPostsStream, generateImageFromPrompt } from './services/aiService';
 import { publishPostToWordPress } from './services/wordpressService';
 import { AI_PROVIDERS } from './constants';
-import { ShieldCheckIcon } from './components/icons/ShieldCheckIcon';
-import { BrainCircuitIcon } from './components/icons/BrainCircuitIcon';
-import { ClipboardCopyIcon } from './components/icons/ClipboardCopyIcon';
-import { MobileViewIcon } from './components/icons/MobileViewIcon';
+import { WordPressIcon } from './components/icons/WordPressIcon';
 
 const LOADING_MESSAGES = [
   "Querying AI for the latest trends...",
@@ -35,78 +28,35 @@ const LOADING_MESSAGES = [
 export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress' | 'resources';
 export type Theme = 'light' | 'dark';
 
-const FeatureCard: React.FC<{ icon: React.ReactNode; title: string; children: React.ReactNode }> = ({ icon, title, children }) => (
-  <div className="bg-white dark:bg-slate-800/50 p-6 rounded-xl border border-slate-200 dark:border-slate-700/50 transition-all duration-300 hover:shadow-xl hover:border-green-400/50 dark:hover:border-green-500/50 hover:-translate-y-1">
-    <div className="flex items-center gap-4">
-      <div className="bg-green-100 dark:bg-green-900/40 p-3 rounded-lg text-green-600 dark:text-green-300">
-        {icon}
-      </div>
-      <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100">{title}</h3>
-    </div>
-    <p className="mt-3 text-slate-600 dark:text-slate-300 text-sm leading-relaxed">{children}</p>
-  </div>
-);
+// #region Performance Utilities
+const base64ToBlob = (base64Data: string, mimeType: string): Blob => {
+    const byteCharacters = atob(base64Data);
+    const byteNumbers = new Array(byteCharacters.length);
+    for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+    }
+    const byteArray = new Uint8Array(byteNumbers);
+    return new Blob([byteArray], { type: mimeType });
+};
 
-const TestimonialCard: React.FC<{ quote: string; author: string; role: string; }> = ({ quote, author, role }) => (
-  <figure className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-lg border border-slate-200 dark:border-slate-700/50">
-    <blockquote className="text-slate-700 dark:text-slate-300 italic">
-      <p>"{quote}"</p>
-    </blockquote>
-    <figcaption className="mt-4 text-right">
-      <p className="font-semibold text-slate-800 dark:text-slate-100">{author}</p>
-      <p className="text-sm text-slate-500 dark:text-slate-400">{role}</p>
-    </figcaption>
-  </figure>
-);
-
-const SharedContent: React.FC = () => (
-    <div className="space-y-24 md:space-y-32 animate-fade-in">
-        {/* Features Section */}
-        <section>
-            <div className="text-center">
-                <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300">The Sizzle That Sets Us Apart</h2>
-                <p className="mt-3 max-w-xl mx-auto text-slate-600 dark:text-slate-400">Exclusive, industry-leading features designed for professional affiliate marketers.</p>
-            </div>
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FeatureCard icon={<ShieldCheckIcon className="w-6 h-6"/>} title="Credibility Engine">
-                    Every claim is fact-checked against real-time data, building unshakable trust with your audience.
-                </FeatureCard>
-                <FeatureCard icon={<BrainCircuitIcon className="w-6 h-6"/>} title="Viral Strategy AI">
-                    Goes beyond simple prompts to analyze trends and build a complete campaign strategy with defined goals.
-                </FeatureCard>
-                <FeatureCard icon={<ClipboardCopyIcon className="w-6 h-6"/>} title="A/B Test Variations">
-                    Generates multiple post variations testing different psychological triggers to see what resonates.
-                </FeatureCard>
-                <FeatureCard icon={<MobileViewIcon className="w-6 h-6"/>} title="Platform-Native Formatting">
-                    Content is perfectly formatted for each social network, complete with emojis, markdown, and platform-specific hooks.
-                </FeatureCard>
-            </div>
-        </section>
-
-        {/* Social Proof */}
-        <section>
-            <div className="text-center">
-                <h2 className="text-3xl md:text-4xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300">Trusted by Marketing Professionals</h2>
-            </div>
-            <div className="mt-12 grid grid-cols-1 md:grid-cols-2 gap-6">
-                <TestimonialCard 
-                    quote="I was tired of the same old AI fluff. This tool's focus on credible, fact-checked content has been a game-changer for my blog's authority."
-                    author="Sarah J."
-                    role="SEO Consultant"
-                />
-                <TestimonialCard 
-                    quote="The strategic analysis is what sold me. It's not just a writer; it's a marketing partner. My engagement rates have doubled."
-                    author="Mike R."
-                    role="Niche Site Owner"
-                />
-            </div>
-        </section>
-    </div>
-);
-
+const dataUrlToBlobUrl = (dataUrl: string): { blobUrl: string; base64: string; mimeType: string } => {
+    const [meta, base64] = dataUrl.split(',');
+    if (!meta || !base64) throw new Error("Invalid data URL format.");
+    
+    const mimeMatch = meta.match(/:(.*?);/);
+    if (!mimeMatch) throw new Error("Could not determine image MIME type.");
+    const mimeType = mimeMatch[1];
+    
+    const blob = base64ToBlob(base64, mimeType);
+    const blobUrl = URL.createObjectURL(blob);
+    
+    return { blobUrl, base64, mimeType };
+};
+// #endregion
 
 const App: React.FC = () => {
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [isBulkPublishing, setIsBulkPublishing] = useState<boolean>(false);
   const [loadingMessage, setLoadingMessage] = useState(LOADING_MESSAGES[0]);
   const [error, setError] = useState<string | null>(null);
   const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
@@ -178,6 +128,20 @@ const App: React.FC = () => {
       localStorage.clear();
     }
   }, []);
+  
+  // Effect to clean up blob URLs to prevent memory leaks
+  useEffect(() => {
+    return () => {
+      if (apiResponse) {
+        apiResponse.posts.forEach(post => {
+          if (post.imageUrl && post.imageUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(post.imageUrl);
+          }
+        });
+      }
+    };
+  }, [apiResponse]);
+
 
   const toggleTheme = () => {
     setTheme(prevTheme => {
@@ -263,11 +227,12 @@ const App: React.FC = () => {
 
     const imageGenerationPromises = posts.map((post, index) =>
       generateImageFromPrompt(post.image_prompt, aiConfig)
-        .then(imageUrl => {
+        .then(dataUrl => {
           setApiResponse(prev => {
             if (!prev) return null;
             const newPosts = [...prev.posts];
-            newPosts[index] = { ...newPosts[index], imageUrl, imageIsLoading: false, wordpressStatus: 'idle' };
+            const { blobUrl } = dataUrlToBlobUrl(dataUrl);
+            newPosts[index] = { ...newPosts[index], imageUrl: blobUrl, imageDataUrl: dataUrl, imageIsLoading: false, wordpressStatus: 'idle' };
             updatedCampaign = { ...prev, posts: newPosts };
             return updatedCampaign;
           });
@@ -292,20 +257,26 @@ const App: React.FC = () => {
 
     const postToUpdate = apiResponse.posts[postIndex];
     if (!postToUpdate) return;
+    
+    // Revoke old blob URL if it exists
+    if (postToUpdate.imageUrl && postToUpdate.imageUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(postToUpdate.imageUrl);
+    }
 
     setApiResponse(prev => {
         if (!prev) return null;
         const newPosts = [...prev.posts];
-        newPosts[postIndex] = { ...newPosts[postIndex], imageIsLoading: true, imageUrl: undefined, wordpressStatus: 'idle' };
+        newPosts[postIndex] = { ...newPosts[postIndex], imageIsLoading: true, imageUrl: undefined, imageDataUrl: undefined, wordpressStatus: 'idle' };
         return { ...prev, posts: newPosts };
     });
 
     try {
-        const imageUrl = await generateImageFromPrompt(postToUpdate.image_prompt, aiConfig);
+        const dataUrl = await generateImageFromPrompt(postToUpdate.image_prompt, aiConfig);
+        const { blobUrl } = dataUrlToBlobUrl(dataUrl);
         setApiResponse(prev => {
             if (!prev) return null;
             const newPosts = [...prev.posts];
-            newPosts[postIndex] = { ...newPosts[postIndex], imageUrl, imageIsLoading: false };
+            newPosts[postIndex] = { ...newPosts[postIndex], imageUrl: blobUrl, imageDataUrl: dataUrl, imageIsLoading: false };
             const finalCampaign = { ...prev, posts: newPosts };
             saveCampaignToHistory(finalCampaign);
             return finalCampaign;
@@ -321,7 +292,7 @@ const App: React.FC = () => {
     }
 };
 
-const handlePublishToWordPress = async (postIndex: number, variationIndex: number) => {
+const handlePublishToWordPress = async (postIndex: number, variationIndex: number): Promise<void> => {
     if (!apiResponse || !wordPressConfig.isValidated) {
         if (!wordPressConfig.isValidated) {
             setError("WordPress Configuration is not validated. Please check your settings.");
@@ -360,6 +331,21 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
             return finalCampaign;
         });
     }
+};
+
+const handlePublishAll = async () => {
+    if (!apiResponse || !wordPressConfig.isValidated || isBulkPublishing) return;
+    setIsBulkPublishing(true);
+
+    for (const [index] of apiResponse.posts.entries()) {
+        const post = apiResponse.posts[index];
+        if (post.wordpressStatus !== 'published' && post.imageDataUrl) {
+            await handlePublishToWordPress(index, 0); // Using first variation by default for bulk publish
+            await new Promise(res => setTimeout(res, 500)); // Rate-limiting delay
+        }
+    }
+    
+    setIsBulkPublishing(false);
 };
   
   const handleGenerate = useCallback(async (formData: InputFormData) => {
@@ -481,20 +467,41 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
     if (hasResults && apiResponse) {
       return (
         <div className="animate-fade-in">
-          <button 
-            onClick={() => {
-              setApiResponse(null);
-              setError(null);
-              if (!aiConfig.isValidated) setActiveView('config');
-            }} 
-            className="mb-6 w-full text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-cyan-600 to-green-500 hover:from-cyan-500 hover:to-green-400 text-white transform hover:scale-105 active:scale-100"
-          >
-            Create New Campaign
-          </button>
+          <div className="mb-6 flex flex-col sm:flex-row gap-4">
+            <button 
+              onClick={() => {
+                setApiResponse(null);
+                setError(null);
+                if (!aiConfig.isValidated) setActiveView('config');
+              }} 
+              className="w-full text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-gradient-to-r from-cyan-600 to-green-500 hover:from-cyan-500 hover:to-green-400 text-white transform hover:scale-105 active:scale-100"
+            >
+              Create New Campaign
+            </button>
+            {wordPressConfig.isValidated && apiResponse.posts.length > 0 && (
+                <button 
+                  onClick={handlePublishAll}
+                  disabled={isBulkPublishing}
+                  className="w-full text-lg font-bold py-3 px-6 rounded-lg transition-all duration-300 flex items-center justify-center gap-3 bg-slate-600 hover:bg-slate-500 text-white transform hover:scale-105 active:scale-100 disabled:bg-slate-500 disabled:opacity-70 disabled:cursor-wait"
+                >
+                  {isBulkPublishing ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-slate-400 border-t-white rounded-full animate-spin"></div>
+                        <span>Publishing...</span>
+                      </>
+                  ) : (
+                      <>
+                        <WordPressIcon className="w-6 h-6" />
+                        <span>Publish Full Campaign</span>
+                      </>
+                  )}
+                </button>
+            )}
+          </div>
 
           <div className="my-8 text-center">
             <a
-              href="https://viral-post.affiliatemarketingforsuccess.com/"
+              href="https://seo-hub.affiliatemarketingforsuccess.com/"
               target="_blank"
               rel="noopener noreferrer"
               className="inline-block text-base md:text-lg font-bold py-4 px-6 rounded-lg transition-all duration-300 bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 hover:from-yellow-400 hover:via-orange-400 hover:to-red-400 text-white transform hover:scale-105 active:scale-100 shadow-lg hover:shadow-2xl"
@@ -534,7 +541,7 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
   return (
     <div className="min-h-screen font-sans transition-colors duration-300 flex flex-col">
       <Header 
-        isLandingPage={!hasResults}
+        isLandingPage={!hasResults && activeView === 'generator'}
         theme={theme}
         toggleTheme={toggleTheme}
         onToggleHistory={() => setActiveView('history')}
@@ -547,19 +554,48 @@ const handlePublishToWordPress = async (postIndex: number, variationIndex: numbe
           {renderContent()}
         </div>
       </main>
-
-      {!hasResults && activeView === 'generator' && (
-          <div className="container mx-auto px-2 sm:px-4 pb-16">
-              <div className="max-w-4xl mx-auto">
-                  <SharedContent />
-              </div>
-          </div>
-      )}
       
       <BottomNavBar activeView={activeView} setActiveView={setActiveView} />
-      <footer className="text-center py-6 text-slate-500 dark:text-slate-500 text-sm px-4">
-        <p>An AI Tool by <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="font-semibold text-green-600 dark:text-green-400 hover:underline">AffiliateMarketingForSuccess.com</a></p>
-        <p className="mt-1">Learn more about <a href="https://affiliatemarketingforsuccess.com/blog/" target="_blank" rel="noopener noreferrer" className="hover:underline">Affiliate Marketing</a>, <a href="https://affiliatemarketingforsuccess.com/seo/" target="_blank" rel="noopener noreferrer" className="hover:underline">SEO</a>, and <a href="https://affiliatemarketingforsuccess.com/ai/" target="_blank" rel="noopener noreferrer" className="hover:underline">AI Content Generation</a>.</p>
+      <footer className="text-center py-12 sm:py-16 px-4 bg-slate-100 dark:bg-slate-950 border-t border-slate-200 dark:border-slate-800">
+        <div className="container mx-auto max-w-4xl flex flex-col items-center gap-8">
+            <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="block">
+                <img 
+                    src="https://affiliatemarketingforsuccess.com/wp-content/uploads/2023/03/cropped-Affiliate-Marketing-for-Success-Logo-Edited.png?lm=6666FEE0" 
+                    alt="AffiliateMarketingForSuccess.com Logo" 
+                    className="h-14 w-auto transition-transform duration-300 hover:scale-105" 
+                />
+            </a>
+
+            <div className="text-center">
+                <p className="text-base text-slate-700 dark:text-slate-300">
+                    This App is Created by <span className="font-semibold text-slate-900 dark:text-slate-100">Alexios Papaioannou</span>
+                </p>
+                <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
+                    Owner of <a href="https://affiliatemarketingforsuccess.com" target="_blank" rel="noopener noreferrer" className="font-medium text-green-600 dark:text-green-400 hover:underline">affiliatemarketingforsuccess.com</a>
+                </p>
+            </div>
+
+            <div className="w-full max-w-2xl text-center">
+                 <p className="font-semibold text-slate-700 dark:text-slate-200 mb-4">Explore Key Topics</p>
+                 <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-3 text-sm text-slate-600 dark:text-slate-300">
+                    <a href="https://affiliatemarketingforsuccess.com/affiliate-marketing" target="_blank" rel="noopener noreferrer" className="hover:text-green-600 dark:hover:text-green-400 hover:underline">Affiliate Marketing</a>
+                    <span className="text-slate-300 dark:text-slate-700 select-none">|</span>
+                    <a href="https://affiliatemarketingforsuccess.com/ai" target="_blank" rel="noopener noreferrer" className="hover:text-green-600 dark:hover:text-green-400 hover:underline">AI</a>
+                    <span className="text-slate-300 dark:text-slate-700 select-none">|</span>
+                    <a href="https://affiliatemarketingforsuccess.com/seo" target="_blank" rel="noopener noreferrer" className="hover:text-green-600 dark:hover:text-green-400 hover:underline">SEO</a>
+                    <span className="text-slate-300 dark:text-slate-700 select-none">|</span>
+                    <a href="https://affiliatemarketingforsuccess.com/blogging" target="_blank" rel="noopener noreferrer" className="hover:text-green-600 dark:hover:text-green-400 hover:underline">Blogging</a>
+                    <span className="text-slate-300 dark:text-slate-700 select-none hidden sm:inline">|</span>
+                    <a href="https://affiliatemarketingforsuccess.com/review" target="_blank" rel="noopener noreferrer" className="hover:text-green-600 dark:hover:text-green-400 hover:underline">Reviews</a>
+                </div>
+            </div>
+
+            <div className="pt-8 mt-4 w-full border-t border-slate-200 dark:border-slate-800">
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                    © {new Date().getFullYear()} AffiliateMarketingForSuccess.com. All Rights Reserved.
+                </p>
+            </div>
+        </div>
       </footer>
     </div>
   );

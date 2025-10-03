@@ -16,11 +16,11 @@ const RedoIcon: React.FC<{ className?: string }> = ({ className }) => (
   </svg>
 );
 
-const ShareIcon: React.FC<{ className?: string }> = ({ className }) => (
+const LayersIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path>
-    <polyline points="16 6 12 2 8 6"></polyline>
-    <line x1="12" y1="2" x2="12" y2="15"></line>
+    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+    <polyline points="2 17 12 22 22 17"></polyline>
+    <polyline points="2 12 12 17 22 12"></polyline>
   </svg>
 );
 
@@ -161,11 +161,20 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
         </button>
     );
   };
+  
+  const repurposePrompt = `Repurpose the following social media post into a 5-part Twitter thread, a script for a 30-second TikTok/Reels video, and three questions for a LinkedIn poll.
+
+POST TITLE:
+${activeVariation.post_title}
+
+POST BODY:
+${activeVariation.post_text}
+`;
 
   const PublishButton: React.FC = () => {
     if (!isWordPressConfigured || post.platform === 'Twitter' || post.platform === 'Instagram') return null;
 
-    const isDisabled = post.imageIsLoading || !post.imageUrl || post.imageUrl === 'error' || post.wordpressStatus === 'publishing';
+    const isDisabled = post.imageIsLoading || !post.imageDataUrl || post.imageUrl === 'error' || post.wordpressStatus === 'publishing';
     
     switch (post.wordpressStatus) {
         case 'publishing':
@@ -180,8 +189,18 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
                 </div>
             );
         default: // idle
-            return <button onClick={() => onPublish(activeVariationIndex)} disabled={isDisabled} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-slate-500 dark:bg-slate-600 hover:bg-slate-600 dark:hover:bg-slate-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"><WordPressIcon className="w-4 h-4" /> Publish to WordPress</button>;
+            return <button onClick={() => onPublish(activeVariationIndex)} disabled={isDisabled} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-slate-500 dark:bg-slate-600 hover:bg-slate-600 dark:hover:bg-slate-500 text-white rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed active:scale-95"><WordPressIcon className="w-4 h-4" /> Publish</button>;
     }
+  };
+
+  const RepurposeButton: React.FC = () => {
+    const isCopied = copyStates['repurpose-prompt'] || false;
+    return (
+      <button onClick={() => handleCopy(repurposePrompt, 'repurpose-prompt')} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors active:scale-95">
+        {isCopied ? <CheckIcon className="w-4 h-4"/> : <LayersIcon className="w-4 h-4" />}
+        {isCopied ? 'Copied!' : 'Repurpose'}
+      </button>
+    )
   };
 
 
@@ -245,7 +264,10 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
       </div>
 
       <div className="p-4 bg-slate-50 dark:bg-slate-900/30 border-t border-slate-200 dark:border-slate-700/50 space-y-4">
-          <PublishButton />
+          <div className="grid grid-cols-2 gap-2">
+            <PublishButton />
+            <RepurposeButton />
+          </div>
           <button onClick={() => setShowDetails(s => !s)} className="w-full flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors py-2 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95">
             <InfoIcon className="w-4 h-4" />
             <span>{showDetails ? 'Hide' : 'Show'} Full Analysis</span>

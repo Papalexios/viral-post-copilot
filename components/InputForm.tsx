@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Tone, Platform, CampaignGoal, InputMode, type InputFormData } from '../types';
 import { PLATFORMS, TONES, CAMPAIGN_GOALS } from '../constants';
@@ -34,17 +33,17 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const isGenerateDisabled = isLoading || selectedPlatforms.length === 0 || (inputMode === InputMode.Topic && !topic.trim()) || (inputMode === InputMode.URLSitemap && !sourceUrl.trim());
 
   return (
-    <form onSubmit={handleSubmit} className="p-4 sm:p-8 bg-white/60 dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/50 space-y-6 sm:space-y-8 mt-12 backdrop-blur-sm">
+    <form onSubmit={handleSubmit} className="p-6 sm:p-10 bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/50 space-y-6 sm:space-y-8 mt-12 shadow-2xl shadow-slate-200/80 dark:shadow-slate-950/50">
       {/* Step 1: Source */}
       <div>
         <label className="block text-base font-bold mb-3 text-slate-800 dark:text-slate-200">
           1. Content Source
         </label>
         <div className="flex bg-slate-100 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-lg p-1 space-x-1 mb-4">
-            <button type="button" onClick={() => setInputMode(InputMode.Topic)} className={`w-full text-center px-3 py-2 rounded-md transition-all duration-300 font-semibold text-sm active:scale-95 ${inputMode === InputMode.Topic ? 'bg-cyan-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
+            <button type="button" onClick={() => setInputMode(InputMode.Topic)} className={`w-full text-center px-3 py-2 rounded-md transition-all duration-300 font-semibold text-sm active:scale-95 ${inputMode === InputMode.Topic ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
                 Topic / Keyword
             </button>
-            <button type="button" onClick={() => setInputMode(InputMode.URLSitemap)} className={`w-full text-center px-3 py-2 rounded-md transition-all duration-300 font-semibold text-sm active:scale-95 ${inputMode === InputMode.URLSitemap ? 'bg-cyan-600 text-white' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
+            <button type="button" onClick={() => setInputMode(InputMode.URLSitemap)} className={`w-full text-center px-3 py-2 rounded-md transition-all duration-300 font-semibold text-sm active:scale-95 ${inputMode === InputMode.URLSitemap ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
                 URL / Sitemap
             </button>
         </div>

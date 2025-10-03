@@ -1,6 +1,7 @@
 
 
 
+
 export enum Platform {
   Facebook = 'Facebook',
   Instagram = 'Instagram',
@@ -57,10 +58,11 @@ export interface GeneratedPost {
   optimization_notes: string;
   funnel_stage?: 'Awareness' | 'Engagement' | 'Conversion';
   sourceUrl?: string;
-  // New fields for image generation status
-  imageUrl?: string;
+  // Image generation status
+  imageUrl?: string; // High-performance Blob URL for display
+  imageDataUrl?: string; // Original base64 data URL for uploads
   imageIsLoading?: boolean;
-  // New fields for WordPress publishing
+  // WordPress publishing status
   wordpressStatus: WordPressPostStatus;
   wordpressUrl?: string;
   wordpressError?: string;
