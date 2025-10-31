@@ -83,10 +83,19 @@ export const publishPostToWordPress = async (post: GeneratedPost, variationIndex
     // 1. Upload image and get media ID
     const featuredMediaId = await uploadImageToWordPress(post.imageDataUrl, config);
 
-    // 2. Create the post
+    // 2. Combine content for publishing
+    const postContent = `
+        ${variation.post_text}
+        <br><br>
+        <p><em>${variation.call_to_action}</em></p>
+        <br>
+        <p>${variation.hashtags || ''}</p>
+    `.trim();
+
+    // 3. Create the post
     const postData = {
         title: variation.post_title,
-        content: variation.post_text,
+        content: postContent,
         status: 'draft', // Publish as draft by default
         featured_media: featuredMediaId,
     };

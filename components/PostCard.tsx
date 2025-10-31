@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import type { GeneratedPost, PostVariation, Platform } from '../types';
 import { PLATFORMS } from '../constants';
@@ -8,6 +9,7 @@ import { InfoIcon } from './icons/InfoIcon';
 import { WordPressIcon } from './icons/WordPressIcon';
 import { SkeletonLoader } from './SkeletonLoader';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { DownloadIcon } from './icons/DownloadIcon';
 
 const RedoIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -52,15 +54,26 @@ const ImageDisplay: React.FC<{ post: GeneratedPost; onRegenerate: () => void; }>
       {post.imageUrl === 'error' && (
         <div className="absolute inset-0 bg-red-100 dark:bg-red-900/20 flex flex-col items-center justify-center text-center p-4 rounded-lg border border-red-300 dark:border-red-800">
           <p className="text-sm font-semibold text-red-700 dark:text-red-300">Image Failed</p>
-          <p className="mt-1 text-xs text-red-600 dark:text-red-400">Could not generate image.</p>
+          <p className="mt-1 text-xs text-red-600 dark:text-red-400 max-w-full px-2 truncate" title={post.imageError}>{post.imageError || 'Could not generate image.'}</p>
         </div>
       )}
       {!post.imageIsLoading && (
-        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
+        <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2 rounded-lg">
           <button onClick={onRegenerate} className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 border border-slate-600 rounded-full text-white hover:bg-slate-700 transition-colors active:scale-95" aria-label="Regenerate Image">
             <RedoIcon className="w-4 h-4" />
             <span>Regenerate</span>
           </button>
+          {post.imageDataUrl && (
+             <a 
+                href={post.imageDataUrl} 
+                download={`amfs-ai-campaign-image-${Date.now()}.jpeg`}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 border border-slate-600 rounded-full text-white hover:bg-slate-700 transition-colors active:scale-95" 
+                aria-label="Download Image"
+             >
+              <DownloadIcon className="w-4 h-4" />
+              <span>Download</span>
+            </a>
+          )}
         </div>
       )}
     </div>
@@ -81,6 +94,7 @@ const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation 
                         </div>
                     </div>
                     <p className="my-3 text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{variation.post_text}</p>
+                    {variation.hashtags && <p className="text-cyan-600 dark:text-cyan-400 mt-2 text-sm">{variation.hashtags}</p>}
                     {post.imageUrl && post.imageUrl !== 'error' && <img src={post.imageUrl} className="rounded-xl border border-slate-200 dark:border-slate-700 mt-2" />}
                 </div>
             );
@@ -97,6 +111,7 @@ const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation 
                     <div className="p-3 text-sm">
                         <p><strong className="mr-1">yourbrand</strong>{variation.post_text}</p>
                         <p className="text-slate-500 mt-2">{variation.call_to_action}</p>
+                        {variation.hashtags && <p className="text-cyan-600 dark:text-cyan-400 mt-2">{variation.hashtags}</p>}
                     </div>
                 </div>
             );
@@ -114,6 +129,7 @@ const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation 
                     <p className="my-3 text-slate-800 whitespace-pre-wrap">{variation.post_text}</p>
                      {post.imageUrl && post.imageUrl !== 'error' && <img src={post.imageUrl} className="rounded-lg" />}
                      <p className="text-slate-600 mt-3 font-semibold">{variation.call_to_action}</p>
+                     {variation.hashtags && <p className="text-cyan-600 dark:text-cyan-400 mt-2 text-sm">{variation.hashtags}</p>}
                 </div>
             );
     }
@@ -169,6 +185,9 @@ ${activeVariation.post_title}
 
 POST BODY:
 ${activeVariation.post_text}
+
+HASHTAGS:
+${activeVariation.hashtags}
 `;
 
   const PublishButton: React.FC = () => {
@@ -257,7 +276,18 @@ ${activeVariation.post_text}
               </div>
               <h5 className="text-slate-800 dark:text-slate-200 font-bold bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-base">{activeVariation.post_title}</h5>
               <p className="text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap mt-2">{activeVariation.post_text}</p>
-              <p className="text-slate-600 dark:text-slate-400 mt-2 text-xs italic"><strong>CTA:</strong> {activeVariation.call_to_action}</p>
+              <p className="text-slate-600 dark:text-slate-400 mt-2 text-xs italic">{activeVariation.call_to_action}</p>
+              {activeVariation.hashtags && (
+                <div className="mt-3">
+                    <div className="flex justify-between items-center mb-1">
+                        <h5 className="text-xs font-semibold text-slate-500 dark:text-slate-400">Suggested Hashtags</h5>
+                        <CopyButton text={activeVariation.hashtags} id={`hashtags-${activeVariationIndex}`} label="Copy Hashtags" />
+                    </div>
+                    <p className="text-cyan-600 dark:text-cyan-400 bg-slate-100 dark:bg-slate-900/50 p-2 rounded-md font-mono text-xs">
+                        {activeVariation.hashtags}
+                    </p>
+                </div>
+              )}
             </div>
           </>
         )}

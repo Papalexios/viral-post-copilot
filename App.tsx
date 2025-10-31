@@ -9,8 +9,9 @@ import { WordPressConfigurator } from './components/WordPressConfigurator';
 import { BottomNavBar } from './components/BottomNavBar';
 import { Resources } from './components/Resources';
 import { LandingPage } from './components/LandingPage';
-import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig, type WordPressConfig } from './types';
-import { generateViralPostsStream, generateImageFromPrompt } from './services/aiService';
+import { ViralVault } from './components/ViralVault';
+import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig, type WordPressConfig, type ViralPost } from './types';
+import { generateViralPostsStream, generateImageFromPrompt, generateViralTrends } from './services/aiService';
 import { publishPostToWordPress } from './services/wordpressService';
 import { AI_PROVIDERS } from './constants';
 import { WordPressIcon } from './components/icons/WordPressIcon';
@@ -25,7 +26,7 @@ const LOADING_MESSAGES = [
   "Finalizing viral strategy...",
 ];
 
-export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress' | 'resources';
+export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress' | 'resources' | 'vault';
 export type Theme = 'light' | 'dark';
 
 // #region Performance Utilities
@@ -64,6 +65,11 @@ const App: React.FC = () => {
   const [activeView, setActiveView] = useState<ActiveView>('generator');
   const [theme, setTheme] = useState<Theme>('dark');
   
+  // Viral Vault State
+  const [viralTrends, setViralTrends] = useState<ViralPost[] | null>(null);
+  const [isVaultLoading, setIsVaultLoading] = useState<boolean>(false);
+  const [vaultError, setVaultError] = useState<string | null>(null);
+
   const [aiConfig, setAiConfig] = useState<AiConfig>({
       provider: AI_PROVIDERS[0].name,
       apiKey: '',
@@ -242,7 +248,7 @@ const App: React.FC = () => {
            setApiResponse(prev => {
             if (!prev) return null;
             const newPosts = [...prev.posts];
-            newPosts[index] = { ...newPosts[index], imageIsLoading: false, imageUrl: 'error' }; // Mark as failed
+            newPosts[index] = { ...newPosts[index], imageIsLoading: false, imageUrl: 'error', imageError: (err as Error).message }; // Mark as failed
             updatedCampaign = { ...prev, posts: newPosts };
             return updatedCampaign;
           });
@@ -266,7 +272,7 @@ const App: React.FC = () => {
     setApiResponse(prev => {
         if (!prev) return null;
         const newPosts = [...prev.posts];
-        newPosts[postIndex] = { ...newPosts[postIndex], imageIsLoading: true, imageUrl: undefined, imageDataUrl: undefined, wordpressStatus: 'idle' };
+        newPosts[postIndex] = { ...newPosts[postIndex], imageIsLoading: true, imageUrl: undefined, imageDataUrl: undefined, wordpressStatus: 'idle', imageError: undefined };
         return { ...prev, posts: newPosts };
     });
 
@@ -281,12 +287,12 @@ const App: React.FC = () => {
             saveCampaignToHistory(finalCampaign);
             return finalCampaign;
         });
-    } catch (err) {
+    } catch (err: any) {
         console.error(`Failed to regenerate image for post ${postIndex}:`, err);
         setApiResponse(prev => {
             if (!prev) return null;
             const newPosts = [...prev.posts];
-            newPosts[postIndex] = { ...newPosts[postIndex], imageIsLoading: false, imageUrl: 'error' };
+            newPosts[postIndex] = { ...newPosts[postIndex], imageIsLoading: false, imageUrl: 'error', imageError: err.message };
             return { ...prev, posts: newPosts };
         });
     }
@@ -414,6 +420,21 @@ const handlePublishAll = async () => {
     }
   }, [isLoading, aiConfig]);
   
+  const handleGenerateViralTrends = async (niche: string) => {
+    if (!aiConfig.isValidated || isVaultLoading) return;
+    setIsVaultLoading(true);
+    setVaultError(null);
+    setViralTrends(null);
+    try {
+        const trends = await generateViralTrends(niche, aiConfig);
+        setViralTrends(trends);
+    } catch (err: any) {
+        setVaultError(err.message || "An unexpected error occurred.");
+    } finally {
+        setIsVaultLoading(false);
+    }
+  };
+
   const hasResults = useMemo(() => apiResponse && (apiResponse.posts.length > 0 || apiResponse.topic_analysis.campaign_strategy !== "Analyzing topic and formulating strategy..."), [apiResponse]);
   
   const renderContent = () => {
@@ -447,6 +468,17 @@ const handlePublishAll = async () => {
     }
      if (activeView === 'resources') {
         return <Resources />;
+     }
+
+     if (activeView === 'vault') {
+        return (
+            <ViralVault 
+                onGenerate={handleGenerateViralTrends}
+                trends={viralTrends}
+                isLoading={isVaultLoading}
+                error={vaultError}
+            />
+        );
      }
 
     // Default generator view
@@ -548,6 +580,7 @@ const handlePublishAll = async () => {
         onToggleApiConfig={() => setActiveView('config')}
         onToggleWordPressConfig={() => setActiveView('wordpress')}
         onToggleResources={() => setActiveView('resources')}
+        onToggleViralVault={() => setActiveView('vault')}
       />
       <main className="container mx-auto px-2 sm:px-4 py-8 pb-24 md:pb-8 flex-grow">
         <div className="max-w-4xl mx-auto">

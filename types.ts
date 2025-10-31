@@ -1,7 +1,5 @@
 
 
-
-
 export enum Platform {
   Facebook = 'Facebook',
   Instagram = 'Instagram',
@@ -43,6 +41,7 @@ export interface PostVariation {
     post_title: string;
     post_text: string;
     call_to_action: string;
+    hashtags: string;
     share_snippet: string;
     viral_trigger: string;
 }
@@ -62,6 +61,7 @@ export interface GeneratedPost {
   imageUrl?: string; // High-performance Blob URL for display
   imageDataUrl?: string; // Original base64 data URL for uploads
   imageIsLoading?: boolean;
+  imageError?: string;
   // WordPress publishing status
   wordpressStatus: WordPressPostStatus;
   wordpressUrl?: string;
@@ -107,6 +107,14 @@ export interface InputFormData {
   tone: Tone;
   campaignGoal: CampaignGoal;
   postCount: number;
+  trendBoost: boolean;
+}
+
+export interface ViralPost {
+    platform: string;
+    post_text: string;
+    neuro_score: number;
+    viral_trigger: string;
 }
 
 export enum AiProvider {

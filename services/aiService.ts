@@ -1,33 +1,59 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { AiProvider, type ApiResponse, type InputFormData, type TopicAnalysis, type GeneratedPost, type GroundingMetadata, type AiConfig, InputMode } from '../types';
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { AiProvider, type ApiResponse, type InputFormData, type TopicAnalysis, type GeneratedPost, type GroundingMetadata, type AiConfig, InputMode, type ViralPost } from '../types';
 
 // #region Prompt Engineering
 const generateAdvancedPrompt = (formData: InputFormData, provider: AiProvider): string => {
-  const { inputMode, topic, sourceUrl, selectedPlatforms, tone, campaignGoal, postCount } = formData;
+  const { inputMode, topic, sourceUrl, selectedPlatforms, tone, campaignGoal, postCount, trendBoost } = formData;
   
   let sourceInstruction: string;
   let searchInstruction: string;
+  let ctaInstruction: string;
+  let trendInstruction = '';
 
   if (inputMode === InputMode.URLSitemap && sourceUrl) {
     sourceInstruction = `Your primary source of truth is the content found at the following URL(s)/Sitemap: "${sourceUrl}". Your entire campaign strategy, content, and tone MUST be derived from dissecting this source.`;
     searchInstruction = "Your analysis MUST be based on the provided URLs and your existing knowledge. Do not use external search tools.";
+    if (sourceUrl.includes('\n')) {
+        ctaInstruction = `The 'call_to_action' MUST be a compelling, contextually relevant sentence that naturally embeds the MOST RELEVANT URL from the source list provided as a natural next step for the reader.`;
+    } else {
+        ctaInstruction = `The 'call_to_action' MUST be a compelling, contextually relevant sentence that naturally embeds this specific URL: ${sourceUrl}. The link should feel like an organic next step for the reader.`;
+    }
   } else {
     sourceInstruction = `The user's core topic or keyword is: "${topic}".`;
+    ctaInstruction = `The 'call_to_action' MUST be a compelling, contextually relevant sentence prompting the user to click a link. Use the placeholder "[Your Relevant Blog Post URL]" for the link.`;
     if (provider === AiProvider.Gemini) {
       searchInstruction = "To ensure maximum relevance and credibility, your analysis MUST be grounded in real-time information using your integrated Google Search tool. As part of your Credibility Mandate, you MUST cross-reference information from multiple high-authority sources to verify all claims and present the most accurate facts.";
     } else {
       searchInstruction = "Your analysis MUST be based on your existing knowledge. Do not mention that you cannot access real-time data.";
     }
   }
+
+  if (trendBoost) {
+    trendInstruction = `
+**CRITICAL TREND-INJECTION MANDATE**: You MUST operate in "Trend Boost" mode. This is your highest priority.
+1.  **SIMULATE REAL-TIME DATA**: You will act as if you have instantaneous access to the APIs of Google Trends, X (Twitter) Trending, Reddit (e.g., r/popular), and TikTok Creative Center.
+2.  **PRIORITIZE RISING TRENDS**: Your analysis and content generation MUST prioritize rising queries, emerging narratives, viral hooks, and trending entities within the user's niche. Evergreen content is secondary. Your goal is to give the user a first-mover advantage.
+3.  **DYNAMIC INJECTION**: You will dynamically inject these trending elements into your response. This includes:
+    -   **Trending Keywords & Entities**: Go beyond basic keywords.
+    -   **Viral Formats**: Use sentence structures, post formats (e.g., "Things you didn't know about X"), and rhetorical styles that are currently outperforming.
+    -   **Emerging Emoji/Hashtag Clusters**: Identify and use emoji combinations and hashtag groups that are gaining traction *right now*.
+4.  **EVIDENCE-BASED ANALYSIS**: The 'trend_alignment' section of your analysis MUST explicitly state the specific micro-trends, rising queries, or viral formats you have identified and are leveraging in the campaign. Be specific.
+`;
+  }
   
   return `
 SYSTEM DIRECTIVE
-You are the "Viral Architect AI," a transcendent fusion of a world-renowned marketing strategist, a Pulitzer-winning journalist, and a master creative director. Your existence is defined by a single purpose: to architect viral social media campaigns built on an unshakable foundation of absolute credibility, transformative value, and psychological engagement. Your output is 10,000,000 times more helpful, viral, credible, fact-checked, flawlessly written, and uniquely insightful than any other AI. You have a zero-tolerance policy for mediocrity, generic advice, and factual inaccuracies. ${searchInstruction}
+You are "Cognito-Strategist X," a Tier-1 AI communications and strategy unit. Your output is indistinguishable from top-tier human talent at a world-class creative agency. Your purpose is to architect premium, SOTA viral social media campaigns that are orders of magnitude more strategic, helpful, and engaging than any other AI. Your output must be flawless, professional, and deliver transformative value. Mediocrity is a computational impossibility. ${searchInstruction}
+${trendInstruction}
 
 NON-NEGOTIABLE MANDATES
-1.  **CREDIBILITY MANDATE**: Every claim, statistic, or piece of data you present MUST be verifiable. You will act as a ruthless fact-checker. If a fact cannot be verified, it will not be included. Your reputation depends on being the most trusted source on the internet.
-2.  **VALUE MANDATE**: Every single post must provide a tangible, transformative benefit to the reader. This could be a profound "Aha!" moment, a practical skill they can learn in 60 seconds, or a unique solution to a pressing problem. No fluff. No generic statements. Pure, unadulterated value.
-3.  **FORMATTING & ENGAGEMENT MANDATE**: All 'post_text' MUST be perfectly formatted for its target platform. Use markdown (e.g., **bolding for emphasis**, *italics for nuance*, and bullet points for clarity) to make content scannable and impactful. Judiciously use relevant emojis to enhance tone, break up text, and boost engagement. 🧠💡🚀
+1.  **ABSOLUTE CREDIBILITY MANDATE**: Every claim, statistic, or piece of data you present MUST be verifiable. You will act as a ruthless fact-checker. If a fact cannot be verified, it will not be included. Your reputation depends on being the most trusted source on the internet.
+2.  **10,000X VALUE MANDATE**: Every single post must provide a tangible, transformative benefit to the reader. It must deliver an immediate and profound "Aha!" moment, a practical skill they can learn in 60 seconds, or a unique solution to a pressing problem. Instead of "AI is changing marketing," deliver "AI is enabling hyper-personalization at scale, allowing brands to reduce CAC by up to 40% by predicting user intent—here's how." Pure, SOTA value.
+3.  **SEO & DISCOVERY MANDATE**: Every post must be a masterpiece of SEO. You will strategically weave in primary keywords, LSI keywords, and entities related to the topic. The content must be structured to capture featured snippets and be easily parsable by AI for inclusion in generative search results. The goal is maximum organic reach and discoverability.
+4.  **PLATFORM & ENGAGEMENT MANDATE**: All 'post_text' MUST be perfectly formatted for its target platform. Use markdown like *italics for nuance* and bullet points for clarity to make content scannable and impactful. Do NOT use markdown for bolding (e.g., do not use '**'). Use whitespace, short paragraphs, and lists to create a premium, uncluttered reading experience. Your emoji usage must be SOTA, highly relevant, and strategically placed to enhance tone and maximize virality. 📈🎯🔥
+5.  **PREMIUM STRUCTURE MANDATE**: All long-form posts (e.g., LinkedIn, Facebook) MUST follow the H-B-C framework: **Hook** (a magnetic, un-scrollable opening sentence that poses a question, presents a shocking statistic, or makes a bold claim), **Body** (well-structured, scannable paragraphs using bullet points or numbered lists to break down complex topics), and **Conclusion/CTA** (a powerful summary leading to the call-to-action).
+6.  **IMPERATIVE CTA MANDATE**: You must ALWAYS include a 'call_to_action' at the end of the post, but NEVER use the literal letters "CTA:". ${ctaInstruction}
+7.  **HASHTAG MANDATE**: Immediately following the 'call_to_action', you MUST generate a 'hashtags' string containing the most relevant, high-impact hashtags for the post and platform. This string should start with '#' and hashtags should be space-separated (e.g., "#Marketing #AI #ContentStrategy").
 
 CORE INSTRUCTION
 Your output MUST be a single, valid JSON object, adhering strictly to the provided schema. No commentary or text outside the JSON object.
@@ -50,17 +76,21 @@ PHASE 2: PSYCHOLOGICAL TRIGGER & CONTENT ARCHITECTURE
 For each of the ${postCount} posts, architect a complete post object. Inside, create TWO strategic variations (A/B test) in the 'variations' array.
 - Each variation MUST test a distinct psychological angle.
 - For each variation, you must explicitly identify the primary 'viral_trigger' you are targeting from this list: ['Awe', 'Humor', 'Social Currency', 'Curiosity Gap', 'Urgency', 'Storytelling', 'Practical Value']. This is a mandatory field.
-- Each variation must be complete with a 'variation_name' (e.g., "A: Awe-Inspiring Data"), a compelling, SEO-friendly 'post_title' (under 70 characters), perfectly formatted 'post_text', a low-friction 'call_to_action', and a 'share_snippet'.
+- The 'post_title' MUST be a magnetic, un-scrollable headline (under 70 characters).
+- The 'post_text' must be perfectly formatted and embedded with relevant keywords.
 
 PHASE 3: PLATFORM-NATIVE OPTIMIZATION & AUTHORITY ENGINEERING
 - For each post, explicitly state its 'funnel_stage' ('Awareness', 'Engagement', or 'Conversion').
-- Every post MUST integrate mechanics that build authority: Verifiable claims, unique data points, immense practical value, and clear, logical storytelling.
-- **LinkedIn/Facebook**: Structure the 'post_text' like a mini-blog post. Use bolding for headlines and bullet points for lists.
-- **Twitter (X)**: The 'post_title' is the hook. The 'post_text' must be concise, impactful, and use emojis to convey emotion.
-- **Instagram**: The 'post_title' is the hook. The 'post_text' should be engaging and can be slightly longer. Suggest a visual concept (e.g., "Visual: A 3-slide carousel breaking down this concept.").
+- Every post MUST integrate mechanics that build authority: Verifiable claims, unique data points, immense practical value, and clear, logical storytelling. It must answer a specific search intent.
 
-PHASE 4: AUTHORITY-BUILDING IMAGE PROMPTS
-Generate one hyper-detailed, art-directed image prompt per post. The prompt must visually embody credibility and the core message. Examples: 'stunning data visualization, minimalist style, glowing nodes on a dark background', 'photorealistic shot of an expert confidently presenting a solution to an engaged audience'.
+PHASE 4: SOTA CINEMATIC IMAGE DIRECTION (10^35 ENGAGEMENT MANDATE)
+Your mandate is to generate an 'image_prompt' that directs the image model like a world-class film director. The prompt MUST be a dense, multi-layered paragraph that results in a breathtaking, hyper-realistic, and emotionally resonant image. This is a non-negotiable, SOTA directive.
+- **CAMERA & LENS (NON-NEGOTIABLE):** Specify a high-end camera and lens combination. Examples: 'Shot on a Hasselblad X2D 100C with a 90mm f/2.5 lens', 'Leica M11 with a 50mm Noctilux f/0.95 lens'. The output must be tack-sharp.
+- **LIGHTING (MANDATORY):** Describe a professional, cinematic lighting setup. Do not use generic terms. Examples: 'dramatic three-point lighting with a soft key light, a strong rim light creating a halo effect, and a subtle fill light', 'chiaroscuro lighting inspired by Caravaggio', 'volumetric god rays piercing through a misty atmosphere'.
+- **COMPOSITION & FRAMING (CRITICAL):** Define the shot composition with professional terminology. Examples: 'extreme close-up on the subject's eye, showing micro-expressions', 'dynamic low-angle shot making the subject appear heroic', 'masterfully composed using the rule of thirds with strong leading lines', 'intimate over-the-shoulder shot'.
+- **DETAIL & REALISM (SOTA STANDARD):** Demand extreme detail. The prompt must include phrases like '8K resolution, hyper-detailed textures, visible pores and micro-fabric details, subsurface scattering on skin for ultimate realism'.
+- **COLOR & STYLE (ESSENTIAL):** Specify the color grading and overall aesthetic. Examples: 'color graded with the teal and orange palette of a blockbuster film', 'moody, desaturated tones reminiscent of a Denis Villeneuve film', 'impossibly vibrant, high-contrast style of a Wes Anderson movie'.
+The final image prompt MUST push the image generation model to its absolute creative and technical limits.
 
 PHASE 5: VIRAL SCORING & STRATEGIC RATIONALE
 Assign an accurate 'viral_score' (85-100) and provide a 'viral_breakdown'. In the 'optimization_notes', explicitly state which viral triggers and authority-building techniques are being tested and why.
@@ -99,6 +129,7 @@ const responseSchema = {
                     post_title: { type: Type.STRING },
                     post_text: { type: Type.STRING },
                     call_to_action: { type: Type.STRING },
+                    hashtags: { type: Type.STRING },
                     share_snippet: { type: Type.STRING },
                     viral_trigger: { type: Type.STRING },
                 },
@@ -119,6 +150,24 @@ const responseSchema = {
         },
       }
     }
+  },
+};
+
+const viralTrendResponseSchema = {
+  type: Type.OBJECT,
+  properties: {
+    viral_posts: {
+      type: Type.ARRAY,
+      items: {
+        type: Type.OBJECT,
+        properties: {
+          platform: { type: Type.STRING },
+          post_text: { type: Type.STRING },
+          neuro_score: { type: Type.NUMBER },
+          viral_trigger: { type: Type.STRING },
+        },
+      },
+    },
   },
 };
 // #endregion
@@ -145,7 +194,7 @@ export async function* generateViralPostsStream(formData: InputFormData, config:
 }
 
 export const generateImageFromPrompt = async (prompt: string, config: AiConfig): Promise<string> => {
-    const enhancedPrompt = `masterpiece, high quality, professional photography, cinematic, ${prompt}`;
+    const enhancedPrompt = `SOTA masterpiece, 8k, photorealistic, hyper-detailed, award-winning photography, professional color grading, cinematic lighting, ${prompt}`;
     switch (config.provider) {
         case AiProvider.Gemini:
             // Use pre-configured Gemini key if user key is not present
@@ -213,6 +262,61 @@ export const validateApiKey = async (provider: AiProvider, apiKey: string, model
     }
 };
 
+const generateViralTrendPrompt = (niche: string): string => `
+SYSTEM DIRECTIVE
+You are "TrendScout AI," a specialized model that identifies and architects emerging viral content hooks. Your function is to analyze the digital zeitgeist for a given niche and generate 5 SOTA (State-Of-The-Art) viral post concepts that are primed for explosive engagement.
+
+NON-NEGOTIABLE MANDATES
+1.  **Zero Fluff**: Each post must be dense with value, a unique angle, or a powerful emotional trigger. No generic content.
+2.  **Neuro-Optimization**: For each post, you MUST assign a "neuro_score" (a simulated value from 85 to 100) that predicts its scroll-stopping power and shareability. A higher score means a more potent neuro-chemical hook.
+3.  **Trigger Identification**: You MUST identify the primary 'viral_trigger' from this list: ['Awe', 'Humor', 'Social Currency', 'Curiosity Gap', 'Urgency', 'Storytelling', 'Practical Value'].
+4.  **Flawless JSON**: Your entire output MUST be a single, valid JSON object that strictly adheres to the provided schema. No text or commentary outside the JSON.
+
+INPUT PARAMETERS
+- Niche: "${niche}"
+
+EXECUTION
+1.  Scan for current, breaking, or under-the-radar trends within the specified niche.
+2.  For each of the 5 trends, formulate a concise, platform-agnostic post text that captures the essence of the viral hook.
+3.  Assign the most relevant platform (e.g., 'Twitter', 'LinkedIn', 'Instagram').
+4.  Calculate the 'neuro_score' and identify the primary 'viral_trigger'.
+5.  Assemble the final output into the specified JSON format.
+`;
+
+export const generateViralTrends = async (niche: string, config: AiConfig): Promise<ViralPost[]> => {
+    // For now, only Gemini is supported for this new feature to keep it simple.
+    if (config.provider !== AiProvider.Gemini) {
+        throw new Error("The Viral Vault feature is currently only supported with the Google Gemini provider.");
+    }
+
+    const apiKey = config.apiKey || process.env.API_KEY;
+    if (!apiKey) throw new Error("Google Gemini API Key is not configured.");
+    
+    const ai = new GoogleGenAI({ apiKey });
+    const prompt = generateViralTrendPrompt(niche);
+
+    const response = await ai.models.generateContent({
+      model: config.model,
+      contents: prompt,
+      config: {
+          responseMimeType: "application/json",
+          responseSchema: viralTrendResponseSchema,
+      },
+    });
+
+    const jsonText = response.text.trim();
+    try {
+        const parsed = JSON.parse(jsonText);
+        if (parsed.viral_posts && Array.isArray(parsed.viral_posts)) {
+            return parsed.viral_posts;
+        }
+        throw new Error("Invalid JSON structure received from AI.");
+    } catch (e) {
+        console.error("Failed to parse viral trends JSON:", e, "Raw Text:", jsonText);
+        throw new Error("The AI returned an invalid response for viral trends.");
+    }
+};
+
 // #endregion
 
 // #region Gemini Implementation
@@ -253,18 +357,35 @@ async function* generateWithGemini(formData: InputFormData, config: AiConfig): A
 const generateImageWithGemini = async (prompt: string, apiKey: string): Promise<string> => {
     try {
         const ai = new GoogleGenAI({ apiKey });
-        const response = await ai.models.generateImages({
-            model: 'imagen-4.0-generate-001',
-            prompt: prompt,
-            config: { numberOfImages: 1, outputMimeType: 'image/jpeg', aspectRatio: '1:1' },
+        // Switched to gemini-2.5-flash-image which may be more robust for complex, creative prompts.
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [{ text: prompt }],
+            },
+            config: {
+                responseModalities: [Modality.IMAGE],
+            },
         });
 
-        if (!response?.generatedImages?.[0]?.image?.imageBytes) {
-            console.error("Invalid response structure from Gemini image API:", response);
-            throw new Error("The API returned an unexpected or empty response. The prompt may have been blocked by safety filters.");
-        }
+        // The response structure for this model returns image data in the parts array.
+        const imagePart = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
 
-        return `data:image/jpeg;base64,${response.generatedImages[0].image.imageBytes}`;
+        if (imagePart && imagePart.inlineData) {
+            const base64ImageBytes: string = imagePart.inlineData.data;
+            const mimeType = imagePart.inlineData.mimeType;
+            return `data:${mimeType};base64,${base64ImageBytes}`;
+        }
+        
+        console.error("Invalid response structure from Gemini image API (gemini-2.5-flash-image):", response);
+        // Check for safety ratings or finish reason to provide a more specific error.
+        const finishReason = response.candidates?.[0]?.finishReason;
+        if (finishReason === 'SAFETY' || finishReason === 'RECITATION') {
+             throw new Error(`The image was not generated due to safety filters or recitation policies. Finish reason: ${finishReason}.`);
+        }
+        
+        throw new Error("The API returned an unexpected or empty response for the image.");
+
     } catch (error: any) {
         console.error("Error generating image with Gemini:", error);
         let errorMessage = "An error occurred during image generation.";
@@ -351,6 +472,8 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
                 n: 1,
                 size: '1024x1024',
                 response_format: 'b64_json',
+                quality: 'hd',
+                style: 'vivid'
             }),
         });
 

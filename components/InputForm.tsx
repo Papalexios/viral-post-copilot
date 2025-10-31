@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Tone, Platform, CampaignGoal, InputMode, type InputFormData } from '../types';
 import { PLATFORMS, TONES, CAMPAIGN_GOALS } from '../constants';
 import { SparklesIcon } from './icons/SparklesIcon';
+import { TrendingUpIcon } from './icons/TrendingUpIcon';
 
 interface InputFormProps {
   onGenerate: (formData: InputFormData) => void;
@@ -16,6 +17,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [selectedPlatforms, setSelectedPlatforms] = useState<Platform[]>([Platform.Twitter, Platform.LinkedIn]);
   const [tone, setTone] = useState<Tone>(Tone.Professional);
   const [campaignGoal, setCampaignGoal] = useState<CampaignGoal>(CampaignGoal.BrandAwareness);
+  const [trendBoost, setTrendBoost] = useState<boolean>(true);
 
   const handlePlatformToggle = (platformName: Platform) => {
     setSelectedPlatforms(prev =>
@@ -27,7 +29,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onGenerate({ inputMode, topic, sourceUrl, selectedPlatforms, tone, campaignGoal, postCount });
+    onGenerate({ inputMode, topic, sourceUrl, selectedPlatforms, tone, campaignGoal, postCount, trendBoost });
   };
   
   const isGenerateDisabled = isLoading || selectedPlatforms.length === 0 || (inputMode === InputMode.Topic && !topic.trim()) || (inputMode === InputMode.URLSitemap && !sourceUrl.trim());
@@ -68,6 +70,27 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
              />
         )}
       </div>
+
+       {/* Trend Boost */}
+      <div className="bg-slate-100 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+          <label htmlFor="trendBoost" className="flex items-center justify-between cursor-pointer">
+              <div className="flex items-center gap-3">
+                  <TrendingUpIcon className="w-6 h-6 text-orange-500 dark:text-orange-400" />
+                  <div>
+                      <span className="font-bold text-base text-slate-800 dark:text-slate-200">Trend Boost</span>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">Prioritize emerging trends for a first-mover advantage.</p>
+                  </div>
+              </div>
+               <input
+                  type="checkbox"
+                  id="trendBoost"
+                  checked={trendBoost}
+                  onChange={e => setTrendBoost(e.target.checked)}
+                  className="h-5 w-5 rounded border-slate-300 text-green-600 focus:ring-green-500"
+              />
+          </label>
+      </div>
+
 
       {/* Step 2: Platform Selection */}
       <div>
