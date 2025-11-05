@@ -55,7 +55,7 @@ const TrendCard: React.FC<{ trend: ViralPost }> = ({ trend }) => {
     );
 };
 
-export const ViralVault: React.FC<ViralVaultProps> = ({ onGenerate, trends, isLoading, error }) => {
+const ViralVault: React.FC<ViralVaultProps> = ({ onGenerate, trends, isLoading, error }) => {
     const [niche, setNiche] = useState<string>('');
 
     const handleSubmit = (e: React.FormEvent) => {
@@ -117,3 +117,5 @@ export const ViralVault: React.FC<ViralVaultProps> = ({ onGenerate, trends, isLo
         </div>
     );
 };
+
+export default ViralVault;

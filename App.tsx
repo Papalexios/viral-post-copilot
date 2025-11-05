@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, lazy, Suspense } from 'react';
 import { Header } from './components/Header';
 import { PostCard } from './components/PostCard';
 import { LoadingSpinner } from './components/LoadingSpinner';
@@ -9,12 +9,15 @@ import { WordPressConfigurator } from './components/WordPressConfigurator';
 import { BottomNavBar } from './components/BottomNavBar';
 import { Resources } from './components/Resources';
 import { LandingPage } from './components/LandingPage';
-import { ViralVault } from './components/ViralVault';
-import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig, type WordPressConfig, type ViralPost } from './types';
-import { generateViralPostsStream, generateImageFromPrompt, generateViralTrends } from './services/aiService';
+import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig, type WordPressConfig, type ViralPost, type SchedulingSuggestion, PostVariation, Tone } from './types';
+import { generateViralPostsStream, generateImageFromPrompt, generateViralTrends, generateSchedulingSuggestions, rewriteText, generateMoreLikeThis, generateClipScript } from './services/aiService';
 import { publishPostToWordPress } from './services/wordpressService';
 import { AI_PROVIDERS } from './constants';
 import { WordPressIcon } from './components/icons/WordPressIcon';
+
+const ViralVault = lazy(() => import('./components/ViralVault'));
+const Scheduler = lazy(() => import('./components/Scheduler'));
+
 
 const LOADING_MESSAGES = [
   "Querying AI for the latest trends...",
@@ -24,9 +27,10 @@ const LOADING_MESSAGES = [
   "Crafting compelling post variations...",
   "Art-directing scroll-stopping visuals...",
   "Finalizing viral strategy...",
+  "Calculating optimal engagement windows...",
 ];
 
-export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress' | 'resources' | 'vault';
+export type ActiveView = 'generator' | 'history' | 'config' | 'wordpress' | 'resources' | 'vault' | 'scheduler';
 export type Theme = 'light' | 'dark';
 
 // #region Performance Utilities
@@ -53,6 +57,23 @@ const dataUrlToBlobUrl = (dataUrl: string): { blobUrl: string; base64: string; m
     
     return { blobUrl, base64, mimeType };
 };
+
+export async function upscale(base64: string): Promise<string> {
+  const img = new Image();
+  img.src = base64;
+  await img.decode();
+  const canvas = new OffscreenCanvas(img.width * 2, img.height * 2);
+  const ctx = canvas.getContext('2d')!;
+  ctx.imageSmoothingEnabled = true;
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const blob = await canvas.convertToBlob({ type: 'image/jpeg', quality: 0.92 });
+  return new Promise(r => {
+    const reader = new FileReader();
+    reader.onload = () => r(reader.result as string);
+    reader.readAsDataURL(blob);
+  });
+}
 // #endregion
 
 const App: React.FC = () => {
@@ -112,10 +133,11 @@ const App: React.FC = () => {
             handleSaveApiConfig(aiConfig);
         }
       } else {
+         const geminiProvider = AI_PROVIDERS.find(p => p.name === AiProvider.Gemini);
          const defaultConfig: AiConfig = {
             provider: AiProvider.Gemini,
             apiKey: '',
-            model: 'gemini-2.5-flash',
+            model: geminiProvider?.defaultModel || 'gemini-2.5-pro',
             isValidated: true,
          };
          setAiConfig(defaultConfig);
@@ -203,7 +225,7 @@ const App: React.FC = () => {
   }, [isLoading]);
 
 
-  const saveCampaignToHistory = (campaign: ApiResponse) => {
+  const saveCampaignToHistory = useCallback((campaign: ApiResponse) => {
     setCampaignHistory(prevHistory => {
       const newHistory = [campaign, ...prevHistory.filter(p => p.id !== campaign.id)].slice(0, 20); // Keep latest 20
       try {
@@ -213,7 +235,7 @@ const App: React.FC = () => {
       }
       return newHistory;
     });
-  };
+  }, []);
 
   const deleteCampaign = (campaignId: string) => {
     setCampaignHistory(prev => {
@@ -228,17 +250,18 @@ const App: React.FC = () => {
     setActiveView('generator');
   }
 
-  const generateAllImages = async (posts: GeneratedPost[], currentCampaign: ApiResponse) => {
+  const generateAllImages = useCallback(async (posts: GeneratedPost[], currentCampaign: ApiResponse) => {
     let updatedCampaign = { ...currentCampaign };
 
     const imageGenerationPromises = posts.map((post, index) =>
-      generateImageFromPrompt(post.image_prompt, aiConfig)
-        .then(dataUrl => {
+      generateImageFromPrompt(post, currentCampaign.tone, aiConfig)
+        .then(async (dataUrl) => {
+          const upscaled = await upscale(dataUrl);
           setApiResponse(prev => {
             if (!prev) return null;
             const newPosts = [...prev.posts];
-            const { blobUrl } = dataUrlToBlobUrl(dataUrl);
-            newPosts[index] = { ...newPosts[index], imageUrl: blobUrl, imageDataUrl: dataUrl, imageIsLoading: false, wordpressStatus: 'idle' };
+            const { blobUrl } = dataUrlToBlobUrl(upscaled);
+            newPosts[index] = { ...newPosts[index], imageUrl: blobUrl, imageDataUrl: upscaled, imageIsLoading: false, wordpressStatus: 'idle' };
             updatedCampaign = { ...prev, posts: newPosts };
             return updatedCampaign;
           });
@@ -256,9 +279,9 @@ const App: React.FC = () => {
     );
     await Promise.allSettled(imageGenerationPromises);
     saveCampaignToHistory(updatedCampaign);
-  };
+  }, [aiConfig, saveCampaignToHistory]);
 
-  const regenerateImageForPost = async (postIndex: number) => {
+  const regenerateImageForPost = useCallback(async (postIndex: number) => {
     if (!apiResponse) return;
 
     const postToUpdate = apiResponse.posts[postIndex];
@@ -277,12 +300,13 @@ const App: React.FC = () => {
     });
 
     try {
-        const dataUrl = await generateImageFromPrompt(postToUpdate.image_prompt, aiConfig);
-        const { blobUrl } = dataUrlToBlobUrl(dataUrl);
+        const dataUrl = await generateImageFromPrompt(postToUpdate, apiResponse.tone, aiConfig);
+        const upscaled = await upscale(dataUrl);
+        const { blobUrl } = dataUrlToBlobUrl(upscaled);
         setApiResponse(prev => {
             if (!prev) return null;
             const newPosts = [...prev.posts];
-            newPosts[postIndex] = { ...newPosts[postIndex], imageUrl: blobUrl, imageDataUrl: dataUrl, imageIsLoading: false };
+            newPosts[postIndex] = { ...newPosts[postIndex], imageUrl: blobUrl, imageDataUrl: upscaled, imageIsLoading: false };
             const finalCampaign = { ...prev, posts: newPosts };
             saveCampaignToHistory(finalCampaign);
             return finalCampaign;
@@ -296,7 +320,7 @@ const App: React.FC = () => {
             return { ...prev, posts: newPosts };
         });
     }
-};
+}, [apiResponse, aiConfig, saveCampaignToHistory]);
 
 const handlePublishToWordPress = async (postIndex: number, variationIndex: number): Promise<void> => {
     if (!apiResponse || !wordPressConfig.isValidated) {
@@ -371,6 +395,7 @@ const handlePublishAll = async () => {
       id: campaignId,
       campaignTitle: formData.topic || formData.sourceUrl,
       timestamp: Date.now(),
+      tone: formData.tone,
       topic_analysis: {
         campaign_strategy: "Analyzing topic and formulating strategy...",
         trend_alignment: "Scanning current trends...",
@@ -390,7 +415,7 @@ const handlePublishAll = async () => {
         if (chunk.type === 'analysis') {
           finalResponse.topic_analysis = chunk.data;
         } else if (chunk.type === 'post') {
-          const newPost: GeneratedPost = { ...chunk.data, imageIsLoading: true, wordpressStatus: 'idle' };
+          const newPost: GeneratedPost = { ...chunk.data, id: `post_${Date.now()}_${finalResponse.posts.length}`, imageIsLoading: true, wordpressStatus: 'idle', isScheduled: false, rewritingPart: null };
           finalResponse.posts.push(newPost);
         } else if (chunk.type === 'grounding') {
           finalResponse.groundingMetadata = chunk.data;
@@ -399,14 +424,28 @@ const handlePublishAll = async () => {
       }
 
       setIsLoading(false);
+      
+      const finalGeneratedCampaign = { ...finalResponse };
 
-      const hasAnalysis = finalResponse.topic_analysis.campaign_strategy !== "Analyzing topic and formulating strategy...";
-      const hasPosts = finalResponse.posts.length > 0;
+      const hasAnalysis = finalGeneratedCampaign.topic_analysis.campaign_strategy !== "Analyzing topic and formulating strategy...";
+      const hasPosts = finalGeneratedCampaign.posts.length > 0;
 
       if (hasAnalysis || hasPosts) {
-        saveCampaignToHistory(finalResponse);
+        saveCampaignToHistory(finalGeneratedCampaign);
         if (hasPosts) {
-          await generateAllImages(finalResponse.posts, finalResponse);
+          // Fire off image generation and scheduling suggestions in parallel
+          generateAllImages(finalGeneratedCampaign.posts, finalGeneratedCampaign);
+          
+          generateSchedulingSuggestions(formData, finalGeneratedCampaign.topic_analysis, aiConfig)
+            .then(suggestions => {
+              setApiResponse(prev => {
+                if (!prev || prev.id !== finalGeneratedCampaign.id) return prev;
+                const updatedCampaign = { ...prev, schedulingSuggestions: suggestions };
+                saveCampaignToHistory(updatedCampaign);
+                return updatedCampaign;
+              });
+            })
+            .catch(err => console.error("Failed to get scheduling suggestions:", err));
         }
       } else {
         throw new Error("Generation process did not produce any content. The AI model may have returned an empty response.");
@@ -418,7 +457,31 @@ const handlePublishAll = async () => {
       setIsLoading(false);
       setApiResponse(null);
     }
-  }, [isLoading, aiConfig]);
+  }, [isLoading, aiConfig, saveCampaignToHistory, generateAllImages]);
+
+  const handleSchedulePost = (postId: string, date: number) => {
+    setApiResponse(prev => {
+      if (!prev) return null;
+      const newPosts = prev.posts.map(p =>
+        p.id === postId ? { ...p, isScheduled: true, scheduledDate: date } : p
+      );
+      const updatedCampaign = { ...prev, posts: newPosts };
+      saveCampaignToHistory(updatedCampaign);
+      return updatedCampaign;
+    });
+  };
+
+  const handleUnschedulePost = (postId: string) => {
+    setApiResponse(prev => {
+      if (!prev) return null;
+      const newPosts = prev.posts.map(p =>
+        p.id === postId ? { ...p, isScheduled: false, scheduledDate: undefined } : p
+      );
+      const updatedCampaign = { ...prev, posts: newPosts };
+      saveCampaignToHistory(updatedCampaign);
+      return updatedCampaign;
+    });
+  };
   
   const handleGenerateViralTrends = async (niche: string) => {
     if (!aiConfig.isValidated || isVaultLoading) return;
@@ -432,6 +495,145 @@ const handlePublishAll = async () => {
         setVaultError(err.message || "An unexpected error occurred.");
     } finally {
         setIsVaultLoading(false);
+    }
+  };
+
+  const handleRewritePostPart = async (
+    postIndex: number,
+    variationIndex: number,
+    part: 'post_title' | 'post_text' | 'call_to_action' | 'image_prompt',
+    instruction: string
+  ) => {
+    if (!apiResponse) return;
+
+    const postToUpdate = apiResponse.posts[postIndex];
+    const partName = part.replace('_', ' ');
+    let originalText = '';
+
+    if (part === 'image_prompt') {
+        originalText = postToUpdate.image_prompt;
+    } else {
+        originalText = postToUpdate.variations[variationIndex][part];
+    }
+    
+    // Set loading state
+    setApiResponse(prev => {
+        if (!prev) return null;
+        const newPosts = [...prev.posts];
+        newPosts[postIndex] = { ...newPosts[postIndex], rewritingPart: part };
+        return { ...prev, posts: newPosts };
+    });
+
+    try {
+        const newText = await rewriteText(originalText, partName, instruction, aiConfig);
+
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            const updatedPost = { ...newPosts[postIndex] };
+            
+            if (part === 'image_prompt') {
+                updatedPost.image_prompt = newText;
+            } else {
+                const newVariations = [...updatedPost.variations];
+                newVariations[variationIndex] = { ...newVariations[variationIndex], [part]: newText };
+                updatedPost.variations = newVariations;
+            }
+            
+            updatedPost.rewritingPart = null;
+            newPosts[postIndex] = updatedPost;
+            const finalCampaign = { ...prev, posts: newPosts };
+            saveCampaignToHistory(finalCampaign);
+            return finalCampaign;
+        });
+
+    } catch (err: any) {
+        console.error("Rewrite error:", err);
+        setError(`Rewrite failed: ${err.message}`);
+        // Clear loading state on error
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            newPosts[postIndex] = { ...newPosts[postIndex], rewritingPart: null };
+            return { ...prev, posts: newPosts };
+        });
+    }
+  };
+
+  const handleGenerateMoreLikeThis = async (postIndex: number, variationIndex: number) => {
+    if (!apiResponse || isLoading) return;
+
+    const sourcePost = apiResponse.posts[postIndex];
+    const sourceVariation = sourcePost.variations[variationIndex];
+    setIsLoading(true);
+    setLoadingMessage("Generating similar content concepts...");
+
+    try {
+        const newPostsData = await generateMoreLikeThis(sourcePost, sourceVariation, aiConfig);
+        
+        const newPosts: GeneratedPost[] = newPostsData.map((p, i) => ({
+            ...p,
+            id: `post_${Date.now()}_${apiResponse.posts.length + i}`,
+            imageIsLoading: true,
+            wordpressStatus: 'idle',
+            isScheduled: false,
+            rewritingPart: null
+        }));
+
+        let updatedCampaign: ApiResponse | null = null;
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const combinedPosts = [...prev.posts, ...newPosts];
+            updatedCampaign = { ...prev, posts: combinedPosts };
+            saveCampaignToHistory(updatedCampaign);
+            return updatedCampaign;
+        });
+
+        if (updatedCampaign) {
+            await generateAllImages(newPosts, updatedCampaign);
+        }
+
+    } catch (err: any) {
+        console.error("Generate more error:", err);
+        setError(`Failed to generate more posts: ${err.message}`);
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+  const handleGenerateClipScript = async (postIndex: number, variationIndex: number) => {
+    if (!apiResponse) return;
+
+    const postToUpdate = apiResponse.posts[postIndex];
+    const variation = postToUpdate.variations[variationIndex];
+
+    setApiResponse(prev => {
+        if (!prev) return null;
+        const newPosts = [...prev.posts];
+        newPosts[postIndex] = { ...newPosts[postIndex], clipScriptIsLoading: true };
+        return { ...prev, posts: newPosts };
+    });
+
+    try {
+        const script = await generateClipScript(postToUpdate, variation, aiConfig);
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            const updatedPost = { ...newPosts[postIndex], clipScript: script, clipScriptIsLoading: false };
+            newPosts[postIndex] = updatedPost;
+            const finalCampaign = { ...prev, posts: newPosts };
+            saveCampaignToHistory(finalCampaign);
+            return finalCampaign;
+        });
+    } catch (err: any) {
+        console.error("Clip script generation error:", err);
+        setError(`Failed to generate clip script: ${err.message}`);
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            newPosts[postIndex] = { ...newPosts[postIndex], clipScriptIsLoading: false };
+            return { ...prev, posts: newPosts };
+        });
     }
   };
 
@@ -480,6 +682,33 @@ const handlePublishAll = async () => {
             />
         );
      }
+     
+    if (activeView === 'scheduler') {
+        if (apiResponse && apiResponse.posts.length > 0) {
+            return (
+                <Scheduler
+                    campaign={apiResponse}
+                    onSchedulePost={handleSchedulePost}
+                    onUnschedulePost={handleUnschedulePost}
+                />
+            );
+        } else {
+            return (
+                <div className="text-center py-12 px-4 mt-8 bg-white dark:bg-slate-800/50 rounded-2xl border border-slate-200 dark:border-slate-700">
+                    <h3 className="text-lg font-semibold text-slate-800 dark:text-white">No Active Campaign</h3>
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                        Please generate a campaign first to use the scheduler.
+                    </p>
+                    <button
+                        onClick={() => setActiveView('generator')}
+                        className="mt-4 text-sm font-bold py-2 px-4 rounded-lg transition-all duration-300 flex items-center justify-center gap-2 bg-gradient-to-r from-cyan-600 to-green-500 hover:from-cyan-500 hover:to-green-400 text-white mx-auto"
+                    >
+                        Create New Campaign
+                    </button>
+                </div>
+            );
+        }
+    }
 
     // Default generator view
     if (isLoading) return <LoadingSpinner message={loadingMessage} />;
@@ -553,11 +782,18 @@ const handlePublishAll = async () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {apiResponse.posts.map((post, index) => (
                   <PostCard 
-                    key={`${apiResponse.id}-${index}`} 
-                    post={post} 
+                    key={post.id} 
+                    post={post}
+                    postIndex={index}
+                    schedulingSuggestions={apiResponse.schedulingSuggestions}
                     onRegenerate={() => regenerateImageForPost(index)}
                     onPublish={(variationIndex) => handlePublishToWordPress(index, variationIndex)}
                     isWordPressConfigured={wordPressConfig.isValidated}
+                    onNavigateToScheduler={() => setActiveView('scheduler')}
+                    onRewrite={(variationIndex, part, instruction) => handleRewritePostPart(index, variationIndex, part, instruction)}
+                    onGenerateMore={(variationIndex) => handleGenerateMoreLikeThis(index, variationIndex)}
+                    onSchedulePost={handleSchedulePost}
+                    onGenerateClipScript={() => handleGenerateClipScript(index, 0)}
                   />
                 ))}
               </div>
@@ -581,10 +817,13 @@ const handlePublishAll = async () => {
         onToggleWordPressConfig={() => setActiveView('wordpress')}
         onToggleResources={() => setActiveView('resources')}
         onToggleViralVault={() => setActiveView('vault')}
+        onToggleScheduler={() => setActiveView('scheduler')}
       />
       <main className="container mx-auto px-2 sm:px-4 py-8 pb-24 md:pb-8 flex-grow">
         <div className="max-w-4xl mx-auto">
-          {renderContent()}
+          <Suspense fallback={<div className="flex justify-center py-20"><LoadingSpinner message="Loading..." /></div>}>
+            {renderContent()}
+          </Suspense>
         </div>
       </main>
       

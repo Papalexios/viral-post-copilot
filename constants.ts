@@ -6,12 +6,15 @@ import { InstagramIcon } from './components/icons/InstagramIcon';
 import { PinterestIcon } from './components/icons/PinterestIcon';
 import { LinkedInIcon } from './components/icons/LinkedInIcon';
 import { TwitterIcon } from './components/icons/TwitterIcon';
+import { ThreadsIcon } from './components/icons/ThreadsIcon';
+import { BlueskyIcon } from './components/icons/BlueskyIcon';
+import { YouTubeShortsIcon } from './components/icons/YouTubeShortsIcon';
 
 export const AI_PROVIDERS: { name: AiProvider; defaultModel: string; apiKeyUrl: string; }[] = [
-    { name: AiProvider.Gemini, defaultModel: 'gemini-2.5-flash', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
+    { name: AiProvider.Gemini, defaultModel: 'gemini-2.5-pro', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
     { name: AiProvider.OpenAI, defaultModel: 'gpt-4o', apiKeyUrl: 'https://platform.openai.com/api-keys' },
     { name: AiProvider.Claude, defaultModel: 'claude-3-haiku-20240307', apiKeyUrl: 'https://console.anthropic.com/settings/keys' },
-    { name: AiProvider.OpenRouter, defaultModel: 'google/gemini-flash-1.5', apiKeyUrl: 'https://openrouter.ai/keys' },
+    { name: AiProvider.OpenRouter, defaultModel: 'anthropic/claude-3.5-sonnet', apiKeyUrl: 'https://openrouter.ai/keys' },
 ];
 
 export const PLATFORMS: { name: Platform; icon: React.FC<{ className?: string }> }[] = [
@@ -20,6 +23,9 @@ export const PLATFORMS: { name: Platform; icon: React.FC<{ className?: string }>
   { name: Platform.Pinterest, icon: PinterestIcon },
   { name: Platform.LinkedIn, icon: LinkedInIcon },
   { name: Platform.Twitter, icon: TwitterIcon },
+  { name: Platform.Threads, icon: ThreadsIcon },
+  { name: Platform.Bluesky, icon: BlueskyIcon },
+  { name: Platform.YouTubeShorts, icon: YouTubeShortsIcon },
 ];
 
 export const TONES: Tone[] = [

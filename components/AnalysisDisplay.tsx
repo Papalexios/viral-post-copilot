@@ -3,26 +3,43 @@ import React from 'react';
 import type { TopicAnalysis, GroundingMetadata } from '../types';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { SourcesDisplay } from './SourcesDisplay';
+import { TrendingUpIcon } from './icons/TrendingUpIcon';
+import { UsersIcon } from './icons/UsersIcon';
+import { LightbulbIcon } from './icons/LightbulbIcon';
+import { MagnetIcon } from './icons/MagnetIcon';
 
 interface AnalysisDisplayProps {
   analysis: TopicAnalysis;
   groundingMetadata?: GroundingMetadata;
 }
 
-const AnalysisItem: React.FC<{ title: string, content: string | string[] }> = ({ title, content }) => (
-    <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-        <h4 className="text-md font-bold text-cyan-600 dark:text-cyan-300 mb-2">{title}</h4>
-        {Array.isArray(content) ? (
-            <ul className="list-disc list-inside space-y-1">
-                {content.map((item, index) => (
-                    <li key={index} className="text-slate-700 dark:text-slate-300 text-sm">{item}</li>
-                ))}
-            </ul>
-        ) : (
-            <p className="text-slate-700 dark:text-slate-300 text-sm">{content}</p>
-        )}
-    </div>
-);
+const titleToIconMap: { [key: string]: React.FC<{ className?: string }> } = {
+  'Trend Alignment': TrendingUpIcon,
+  'Audience Resonance': UsersIcon,
+  'Content Gaps Identified': LightbulbIcon,
+  'Top Viral Hooks': MagnetIcon,
+};
+
+const AnalysisItem: React.FC<{ title: string, content: string | string[] }> = ({ title, content }) => {
+    const Icon = titleToIconMap[title];
+    return (
+        <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
+            <h4 className="text-md font-bold text-cyan-600 dark:text-cyan-300 mb-2 flex items-center gap-2">
+                {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
+                <span>{title}</span>
+            </h4>
+            {Array.isArray(content) ? (
+                <ul className="list-disc list-inside space-y-1">
+                    {content.map((item, index) => (
+                        <li key={index} className="text-slate-700 dark:text-slate-300 text-sm">{item}</li>
+                    ))}
+                </ul>
+            ) : (
+                <p className="text-slate-700 dark:text-slate-300 text-sm">{content}</p>
+            )}
+        </div>
+    );
+};
 
 export const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, groundingMetadata }) => {
   return (

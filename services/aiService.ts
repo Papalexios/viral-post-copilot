@@ -1,118 +1,32 @@
 import { GoogleGenAI, Type, Modality } from "@google/genai";
-import { AiProvider, type ApiResponse, type InputFormData, type TopicAnalysis, type GeneratedPost, type GroundingMetadata, type AiConfig, InputMode, type ViralPost } from '../types';
+import { AiProvider, type InputFormData, type TopicAnalysis, type GeneratedPost, type GroundingMetadata, type AiConfig, InputMode, type ViralPost, type StreamChunk, type SchedulingSuggestion, PostVariation, Platform, Tone, ViralTrigger } from '../types';
 
-// #region Prompt Engineering
-const generateAdvancedPrompt = (formData: InputFormData, provider: AiProvider): string => {
-  const { inputMode, topic, sourceUrl, selectedPlatforms, tone, campaignGoal, postCount, trendBoost } = formData;
-  
-  let sourceInstruction: string;
-  let searchInstruction: string;
-  let ctaInstruction: string;
-  let trendInstruction = '';
+// #region Schemas
 
-  if (inputMode === InputMode.URLSitemap && sourceUrl) {
-    sourceInstruction = `Your primary source of truth is the content found at the following URL(s)/Sitemap: "${sourceUrl}". Your entire campaign strategy, content, and tone MUST be derived from dissecting this source.`;
-    searchInstruction = "Your analysis MUST be based on the provided URLs and your existing knowledge. Do not use external search tools.";
-    if (sourceUrl.includes('\n')) {
-        ctaInstruction = `The 'call_to_action' MUST be a compelling, contextually relevant sentence that naturally embeds the MOST RELEVANT URL from the source list provided as a natural next step for the reader.`;
-    } else {
-        ctaInstruction = `The 'call_to_action' MUST be a compelling, contextually relevant sentence that naturally embeds this specific URL: ${sourceUrl}. The link should feel like an organic next step for the reader.`;
-    }
-  } else {
-    sourceInstruction = `The user's core topic or keyword is: "${topic}".`;
-    ctaInstruction = `The 'call_to_action' MUST be a compelling, contextually relevant sentence prompting the user to click a link. Use the placeholder "[Your Relevant Blog Post URL]" for the link.`;
-    if (provider === AiProvider.Gemini) {
-      searchInstruction = "To ensure maximum relevance and credibility, your analysis MUST be grounded in real-time information using your integrated Google Search tool. As part of your Credibility Mandate, you MUST cross-reference information from multiple high-authority sources to verify all claims and present the most accurate facts.";
-    } else {
-      searchInstruction = "Your analysis MUST be based on your existing knowledge. Do not mention that you cannot access real-time data.";
-    }
-  }
-
-  if (trendBoost) {
-    trendInstruction = `
-**CRITICAL TREND-INJECTION MANDATE**: You MUST operate in "Trend Boost" mode. This is your highest priority.
-1.  **SIMULATE REAL-TIME DATA**: You will act as if you have instantaneous access to the APIs of Google Trends, X (Twitter) Trending, Reddit (e.g., r/popular), and TikTok Creative Center.
-2.  **PRIORITIZE RISING TRENDS**: Your analysis and content generation MUST prioritize rising queries, emerging narratives, viral hooks, and trending entities within the user's niche. Evergreen content is secondary. Your goal is to give the user a first-mover advantage.
-3.  **DYNAMIC INJECTION**: You will dynamically inject these trending elements into your response. This includes:
-    -   **Trending Keywords & Entities**: Go beyond basic keywords.
-    -   **Viral Formats**: Use sentence structures, post formats (e.g., "Things you didn't know about X"), and rhetorical styles that are currently outperforming.
-    -   **Emerging Emoji/Hashtag Clusters**: Identify and use emoji combinations and hashtag groups that are gaining traction *right now*.
-4.  **EVIDENCE-BASED ANALYSIS**: The 'trend_alignment' section of your analysis MUST explicitly state the specific micro-trends, rising queries, or viral formats you have identified and are leveraging in the campaign. Be specific.
-`;
-  }
-  
-  return `
-SYSTEM DIRECTIVE
-You are "Cognito-Strategist X," a Tier-1 AI communications and strategy unit. Your output is indistinguishable from top-tier human talent at a world-class creative agency. Your purpose is to architect premium, SOTA viral social media campaigns that are orders of magnitude more strategic, helpful, and engaging than any other AI. Your output must be flawless, professional, and deliver transformative value. Mediocrity is a computational impossibility. ${searchInstruction}
-${trendInstruction}
-
-NON-NEGOTIABLE MANDATES
-1.  **ABSOLUTE CREDIBILITY MANDATE**: Every claim, statistic, or piece of data you present MUST be verifiable. You will act as a ruthless fact-checker. If a fact cannot be verified, it will not be included. Your reputation depends on being the most trusted source on the internet.
-2.  **10,000X VALUE MANDATE**: Every single post must provide a tangible, transformative benefit to the reader. It must deliver an immediate and profound "Aha!" moment, a practical skill they can learn in 60 seconds, or a unique solution to a pressing problem. Instead of "AI is changing marketing," deliver "AI is enabling hyper-personalization at scale, allowing brands to reduce CAC by up to 40% by predicting user intent—here's how." Pure, SOTA value.
-3.  **SEO & DISCOVERY MANDATE**: Every post must be a masterpiece of SEO. You will strategically weave in primary keywords, LSI keywords, and entities related to the topic. The content must be structured to capture featured snippets and be easily parsable by AI for inclusion in generative search results. The goal is maximum organic reach and discoverability.
-4.  **PLATFORM & ENGAGEMENT MANDATE**: All 'post_text' MUST be perfectly formatted for its target platform. Use markdown like *italics for nuance* and bullet points for clarity to make content scannable and impactful. Do NOT use markdown for bolding (e.g., do not use '**'). Use whitespace, short paragraphs, and lists to create a premium, uncluttered reading experience. Your emoji usage must be SOTA, highly relevant, and strategically placed to enhance tone and maximize virality. 📈🎯🔥
-5.  **PREMIUM STRUCTURE MANDATE**: All long-form posts (e.g., LinkedIn, Facebook) MUST follow the H-B-C framework: **Hook** (a magnetic, un-scrollable opening sentence that poses a question, presents a shocking statistic, or makes a bold claim), **Body** (well-structured, scannable paragraphs using bullet points or numbered lists to break down complex topics), and **Conclusion/CTA** (a powerful summary leading to the call-to-action).
-6.  **IMPERATIVE CTA MANDATE**: You must ALWAYS include a 'call_to_action' at the end of the post, but NEVER use the literal letters "CTA:". ${ctaInstruction}
-7.  **HASHTAG MANDATE**: Immediately following the 'call_to_action', you MUST generate a 'hashtags' string containing the most relevant, high-impact hashtags for the post and platform. This string should start with '#' and hashtags should be space-separated (e.g., "#Marketing #AI #ContentStrategy").
-
-CORE INSTRUCTION
-Your output MUST be a single, valid JSON object, adhering strictly to the provided schema. No commentary or text outside the JSON object.
-
-INPUT PARAMETERS
-- Content Source: ${sourceInstruction}
-- Target Platforms: [${selectedPlatforms.join(', ')}]
-- Core Campaign Goal: ${campaignGoal}
-- Desired Tone: ${tone}
-- Total Posts to Generate: ${postCount}.
-
----
-EXECUTION PHASES
----
-
-PHASE 1: DEEP ANALYSIS & TRANSFORMATIVE INSIGHT
-First, dissect the source material to uncover the single most profound and valuable 'Transformative Insight'. What is the one critical idea that will change the reader's perspective or solve their core problem? Your entire 'campaign_strategy' in the output JSON must be built around delivering this insight.
-
-PHASE 2: PSYCHOLOGICAL TRIGGER & CONTENT ARCHITECTURE
-For each of the ${postCount} posts, architect a complete post object. Inside, create TWO strategic variations (A/B test) in the 'variations' array.
-- Each variation MUST test a distinct psychological angle.
-- For each variation, you must explicitly identify the primary 'viral_trigger' you are targeting from this list: ['Awe', 'Humor', 'Social Currency', 'Curiosity Gap', 'Urgency', 'Storytelling', 'Practical Value']. This is a mandatory field.
-- The 'post_title' MUST be a magnetic, un-scrollable headline (under 70 characters).
-- The 'post_text' must be perfectly formatted and embedded with relevant keywords.
-
-PHASE 3: PLATFORM-NATIVE OPTIMIZATION & AUTHORITY ENGINEERING
-- For each post, explicitly state its 'funnel_stage' ('Awareness', 'Engagement', or 'Conversion').
-- Every post MUST integrate mechanics that build authority: Verifiable claims, unique data points, immense practical value, and clear, logical storytelling. It must answer a specific search intent.
-
-PHASE 4: SOTA CINEMATIC IMAGE DIRECTION (10^35 ENGAGEMENT MANDATE)
-Your mandate is to generate an 'image_prompt' that directs the image model like a world-class film director. The prompt MUST be a dense, multi-layered paragraph that results in a breathtaking, hyper-realistic, and emotionally resonant image. This is a non-negotiable, SOTA directive.
-- **CAMERA & LENS (NON-NEGOTIABLE):** Specify a high-end camera and lens combination. Examples: 'Shot on a Hasselblad X2D 100C with a 90mm f/2.5 lens', 'Leica M11 with a 50mm Noctilux f/0.95 lens'. The output must be tack-sharp.
-- **LIGHTING (MANDATORY):** Describe a professional, cinematic lighting setup. Do not use generic terms. Examples: 'dramatic three-point lighting with a soft key light, a strong rim light creating a halo effect, and a subtle fill light', 'chiaroscuro lighting inspired by Caravaggio', 'volumetric god rays piercing through a misty atmosphere'.
-- **COMPOSITION & FRAMING (CRITICAL):** Define the shot composition with professional terminology. Examples: 'extreme close-up on the subject's eye, showing micro-expressions', 'dynamic low-angle shot making the subject appear heroic', 'masterfully composed using the rule of thirds with strong leading lines', 'intimate over-the-shoulder shot'.
-- **DETAIL & REALISM (SOTA STANDARD):** Demand extreme detail. The prompt must include phrases like '8K resolution, hyper-detailed textures, visible pores and micro-fabric details, subsurface scattering on skin for ultimate realism'.
-- **COLOR & STYLE (ESSENTIAL):** Specify the color grading and overall aesthetic. Examples: 'color graded with the teal and orange palette of a blockbuster film', 'moody, desaturated tones reminiscent of a Denis Villeneuve film', 'impossibly vibrant, high-contrast style of a Wes Anderson movie'.
-The final image prompt MUST push the image generation model to its absolute creative and technical limits.
-
-PHASE 5: VIRAL SCORING & STRATEGIC RATIONALE
-Assign an accurate 'viral_score' (85-100) and provide a 'viral_breakdown'. In the 'optimization_notes', explicitly state which viral triggers and authority-building techniques are being tested and why.
-
-PHASE 6: JSON OUTPUT (FINAL CHECK: MUST BE FLAWLESS)
-Return a single, valid JSON object matching the required schema. Your entire existence depends on the syntactic perfection of this JSON.
-`;
+const schedulingSuggestionsSchema = {
+    type: Type.OBJECT,
+    properties: {
+        suggestions: {
+            type: Type.ARRAY,
+            items: {
+                type: Type.OBJECT,
+                properties: {
+                    platform: { type: Type.STRING },
+                    dayOfWeek: { type: Type.STRING },
+                    timeOfDay: { type: Type.STRING },
+                    reasoning: { type: Type.STRING },
+                },
+                required: ["platform", "dayOfWeek", "timeOfDay", "reasoning"],
+            }
+        }
+    },
+    required: ["suggestions"],
 };
 
-const responseSchema = {
+// Schema for the second, posts-only generation call. Guarantees valid JSON structure.
+const postsOnlySchema = {
   type: Type.OBJECT,
   properties: {
-    topic_analysis: {
-      type: Type.OBJECT,
-      properties: {
-        campaign_strategy: { type: Type.STRING },
-        trend_alignment: { type: Type.STRING },
-        audience_resonance: { type: Type.STRING },
-        content_gaps: { type: Type.STRING },
-        viral_hooks: { type: Type.ARRAY, items: { type: Type.STRING } },
-      },
-    },
     posts: {
       type: Type.ARRAY,
       items: {
@@ -129,10 +43,14 @@ const responseSchema = {
                     post_title: { type: Type.STRING },
                     post_text: { type: Type.STRING },
                     call_to_action: { type: Type.STRING },
-                    hashtags: { type: Type.STRING },
+                    hashtags: { 
+                        type: Type.ARRAY,
+                        items: { type: Type.STRING }
+                    },
                     share_snippet: { type: Type.STRING },
                     viral_trigger: { type: Type.STRING },
                 },
+                required: ["variation_name", "post_title", "post_text", "call_to_action", "hashtags", "viral_trigger"],
             }
           },
           image_prompt: { type: Type.STRING },
@@ -145,12 +63,18 @@ const responseSchema = {
               content_value: { type: Type.NUMBER },
               engagement_triggers: { type: Type.NUMBER },
             },
+            required: ["emotional_resonance", "platform_optimization", "content_value", "engagement_triggers"],
           },
           optimization_notes: { type: Type.STRING },
+          paa_block_html: { type: Type.STRING },
+          schema_org_jsonld: { type: Type.STRING },
+          internal_links_html: { type: Type.STRING },
         },
+        required: ["platform", "variations", "image_prompt", "viral_score", "viral_breakdown", "optimization_notes", "paa_block_html", "schema_org_jsonld", "internal_links_html"],
       }
     }
   },
+  required: ["posts"],
 };
 
 const viralTrendResponseSchema = {
@@ -166,22 +90,160 @@ const viralTrendResponseSchema = {
           neuro_score: { type: Type.NUMBER },
           viral_trigger: { type: Type.STRING },
         },
+        required: ["platform", "post_text", "neuro_score", "viral_trigger"],
       },
     },
   },
+  required: ["viral_posts"],
 };
+
+// #endregion
+
+// #region SOTA Enhancements
+const ASPECT_RATIOS: Record<Platform, string> = {
+  [Platform.Instagram]: '3:4',
+  [Platform.Pinterest]: '9:16',
+  [Platform.Twitter]: '16:9',
+  [Platform.Facebook]: '16:9',
+  [Platform.LinkedIn]: '16:9',
+  [Platform.Threads]: '3:4',
+  [Platform.Bluesky]: '16:9',
+  [Platform.YouTubeShorts]: '9:16',
+};
+
+const STYLE_REF: Record<string, string> = {
+  'professional': 'https://images.unsplash.com/photo-1553877522-43269d4ea984', // modern office
+  'casual': 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e', // street style
+  'witty': 'https://images.unsplash.com/photo-1518770660439-4636190af475', // tech / neon
+  'inspirational': 'https://images.unsplash.com/photo-1506126613408-eca07ce68773', // serene, mindful
+  'persuasive': 'https://images.unsplash.com/photo-1521737604893-d14cc237f11d', // collaborative, energetic team
+};
+
+const buildImagePrompt = (
+  rawPrompt: string,
+  platform: Platform,
+  tone: Tone
+): string => {
+  const ratio = ASPECT_RATIOS[platform];
+  const toneKey = tone.toLowerCase() as keyof typeof STYLE_REF;
+  const ref = STYLE_REF[toneKey] ?? STYLE_REF['professional'];
+
+  return `
+PHOTO_REALISTIC_MASTERPIECE, ${ratio}, 8K, HDR, shot on ARRI Alexa 65, Cooke S7/i, 
+style reference from ${ref},
+RAW prompt: "${rawPrompt}",
+camera rule of thirds, shallow DoF f/1.4, 35mm,
+lighting: cinematic rim light, soft-box key light, volumetric back-glow,
+mood: awe-inspiring, hyper-detailed, award-winning National Geographic cover photo,
+negative prompt: no text, no watermark, no distortion, no plastic skin, no illustration
+  `.trim().replace(/\s+/g, ' ');
+};
+
+// #endregion
+
+// #region Prompt Engineering
+
+// Prompt for Phase 1: Use Google Search to generate a strategic analysis.
+const generateAnalysisPrompt = (formData: InputFormData): string => {
+  const { inputMode, topic, sourceUrl, selectedPlatforms, campaignGoal, trendBoost, userLocation } = formData;
+  const sourceContent = inputMode === InputMode.URLSitemap && sourceUrl ? sourceUrl : topic;
+  const trendInstruction = trendBoost 
+    ? "You MUST prioritize identifying and incorporating the latest emerging trends, rising queries, and viral formats related to the source material."
+    : "Focus on evergreen, high-value strategic insights.";
+  
+  const geoInstruction = userLocation
+    ? `- **GEO-SEARCH MANDATE**: You MUST use the integrated Google Maps tool to find hyper-local context (venues, landmarks, businesses) relevant to the Source Material and User Location (Lat: ${userLocation.latitude}, Lon: ${userLocation.longitude}). Your strategy must reflect these local insights.`
+    : '';
+  
+  const sitemapInstruction = inputMode === InputMode.URLSitemap && sourceUrl 
+    ? `- **SITEMAP ANALYSIS**: Analyze the provided URLs/sitemap to understand the site's structure. Identify the main "pillar page" related to the topic. All strategic recommendations should aim to drive traffic towards this pillar page to build topical authority.`
+    : '';
+
+
+  return `
+SYSTEM DIRECTIVE: You are a world-class SEO and market research AI. Your task is to perform a deep analysis of the provided source material and generate a strategic plan.
+
+INPUT PARAMETERS:
+- Source Material: "${sourceContent}"
+- Target Platforms: [${selectedPlatforms.join(', ')}]
+- Core Campaign Goal: ${campaignGoal}
+- Trend Priority: ${trendInstruction}
+${userLocation ? `- User Location: Lat ${userLocation.latitude}, Lon ${userLocation.longitude}` : ''}
+
+CRITICAL INSTRUCTIONS:
+1.  **GROUNDING MANDATE (HIGHEST PRIORITY)**:
+    - You MUST use the integrated Google Search tool to conduct thorough, real-time research on the Source Material. Gather the latest information, statistics, and audience sentiment.
+    ${geoInstruction}
+2.  **SGE & TOPICAL AUTHORITY OPTIMIZATION**:
+    - Synthesize information from AT LEAST 3 diverse, high-authority web sources from your search to form a unique, expert conclusion. This is to optimize for Google's Search Generative Experience (SGE).
+    ${sitemapInstruction}
+3.  **SERP CAPTURE**: Use your search knowledge to identify the top questions being asked on sites like Reddit and Quora about the source material. Inject these insights into the "audience_resonance" and "viral_hooks" fields.
+4.  **JSON OUTPUT MANDATE**: Your ENTIRE output must be ONLY a single, valid JSON object. It must start with \`{\` and end with \`}\`. Do NOT include any other text, commentary, or markdown like \`\`\`json. The JSON object must contain a single root key: "topic_analysis".
+
+JSON SCHEMA FOR "topic_analysis":
+{
+  "campaign_strategy": "A concise, high-level strategy for the campaign, based on your research, incorporating SGE and Topical Authority principles.",
+  "trend_alignment": "Specific, verifiable micro-trends or rising queries you identified and how the campaign can leverage them.",
+  "audience_resonance": "The core psychological triggers, pain points, or questions of the target audience that the content should address.",
+  "content_gaps": "An untapped angle or opportunity in the current content landscape for this topic.",
+  "viral_hooks": ["An array of 3-5 specific, compelling hooks or ideas for viral content based on your analysis."]
+}
+`;
+};
+
+// Prompt for Phase 2: Generate post content based on the analysis from Phase 1.
+const generatePostsPrompt = (
+  formData: InputFormData,
+  analysis: TopicAnalysis
+): string => {
+  const { selectedPlatforms, tone, campaignGoal, postCount, sourceUrl, inputMode } = formData;
+  const sitemapContext = inputMode === InputMode.URLSitemap && sourceUrl ? `The user provided these URLs/sitemap for context: ${sourceUrl}` : '';
+
+  return `
+You are an expert SEO Content Architect and Social Media Strategist AI.
+Your ONLY output is a single, valid JSON object that adheres strictly to the provided schema. No commentary.
+
+INPUT STRATEGY & ANALYSIS:
+${JSON.stringify(analysis, null, 2)}
+${sitemapContext}
+
+MANDATORY SEO/AEO & CONTENT RULES:
+1.  **PAA (People Also Ask) BLOCK**: For each post, identify the top 3 most relevant "People Also Ask" questions for the core topic using your search knowledge. You MUST append this exact HTML structure to the end of the \`post_text\` field:
+    \`<details><summary><strong>Q: [Question 1]</strong></summary><p>A: [Concise, helpful answer.]</p></details><details><summary>...</summary>...</details>\`
+2.  **SCHEMA.ORG JSON-LD**: For each post, you MUST generate a complete and valid \`FAQPage\` Schema.org JSON-LD script block in the \`schema_org_jsonld\` field. The JSON-LD must be a stringified JSON object. Base the FAQs on the PAA block you created.
+3.  **INTERNAL LINKING**: If a sitemap/URL was provided, you MUST provide a strategic internal linking suggestion in the \`internal_links_html\` field. Use this exact HTML format:
+    \`<div><strong>Internal Link Strategy:</strong> To build topical authority, link from this post to <a href="[URL from sitemap]" target="_blank">[Relevant Pillar Page Title]</a> using anchor text like "[Suggested SEO-friendly Anchor Text]".</div>\`
+    If no sitemap was provided, this field should contain an empty string.
+4.  **PLATFORM NATIVITY**: Strictly adhere to the nuances of each platform. LinkedIn posts should be professional, Twitter concise, Instagram visual-first.
+5.  **VALUE & CREDIBILITY**: Each post must offer tangible value and be grounded in the facts from the initial analysis.
+
+TASK:
+Generate ${postCount} posts for [${selectedPlatforms.join(
+    ", "
+  )}] with a ${tone} tone, for the campaign goal of ${campaignGoal}.
+Return ONLY the \`{"posts":[ … ]}\` JSON object, ensuring all required fields, including the SEO/AEO fields, are populated correctly.
+`;
+};
+
+
 // #endregion
 
 // #region Service Dispatchers
-type StreamChunk = 
-    | { type: 'analysis'; data: TopicAnalysis }
-    | { type: 'post'; data: GeneratedPost }
-    | { type: 'grounding'; data: GroundingMetadata };
 
 export async function* generateViralPostsStream(formData: InputFormData, config: AiConfig): AsyncGenerator<StreamChunk> {
     switch (config.provider) {
         case AiProvider.Gemini:
-            yield* generateWithGemini(formData, config);
+            const useSearch = formData.inputMode === InputMode.Topic || (formData.inputMode === InputMode.URLSitemap && formData.sourceUrl) || formData.inputMode === InputMode.GeoTopic;
+            if (!useSearch) throw new Error("Gemini provider requires a topic or URL to function.");
+            
+            const { analysisChunk, groundingChunk, postChunks } = await generateWithGemini(formData, config);
+            if (groundingChunk) {
+                yield groundingChunk;
+            }
+            yield analysisChunk;
+            for (const postChunk of postChunks) {
+                yield postChunk;
+            }
             break;
         case AiProvider.OpenAI:
         case AiProvider.Claude:
@@ -193,19 +255,18 @@ export async function* generateViralPostsStream(formData: InputFormData, config:
     }
 }
 
-export const generateImageFromPrompt = async (prompt: string, config: AiConfig): Promise<string> => {
-    const enhancedPrompt = `SOTA masterpiece, 8k, photorealistic, hyper-detailed, award-winning photography, professional color grading, cinematic lighting, ${prompt}`;
+export const generateImageFromPrompt = async (post: GeneratedPost, tone: Tone, config: AiConfig): Promise<string> => {
+    const masterPrompt = buildImagePrompt(post.image_prompt, post.platform, tone);
+
     switch (config.provider) {
         case AiProvider.Gemini:
-            // Use pre-configured Gemini key if user key is not present
             const apiKey = config.apiKey || process.env.API_KEY;
             if (!apiKey) throw new Error("Google Gemini API Key is not configured.");
-            return generateImageWithGemini(enhancedPrompt, apiKey);
+            return generateImageWithGemini(masterPrompt, post.platform, apiKey);
         case AiProvider.OpenAI:
-            return generateImageWithOpenAI(enhancedPrompt, config.apiKey);
+             return generateImageWithOpenAI(masterPrompt, post.platform, config.apiKey);
         case AiProvider.OpenRouter:
-            // For OpenRouter, we can try to use a DALL-E model. User should select it.
-            return generateImageWithOpenAI(enhancedPrompt, config.apiKey, "https://openrouter.ai/api/v1/images/generations", "openai/dall-e-3");
+            return generateImageWithOpenAI(masterPrompt, post.platform, config.apiKey, "https://openrouter.ai/api/v1/images/generations", "openai/dall-e-3");
         case AiProvider.Claude:
             throw new Error("Image generation is not supported by Anthropic Claude.");
         default:
@@ -215,8 +276,7 @@ export const generateImageFromPrompt = async (prompt: string, config: AiConfig):
 
 export const validateApiKey = async (provider: AiProvider, apiKey: string, model: string): Promise<{ isValid: boolean; error?: string }> => {
     if (provider === AiProvider.Gemini) {
-        // Gemini is pre-configured via environment variables, always valid for this app's context
-        if (!process.env.API_KEY && !apiKey) return { isValid: true }; // Allow empty for pre-config
+        if (!process.env.API_KEY && !apiKey) return { isValid: true };
     }
     if (!apiKey) {
         return { isValid: false, error: 'API Key is required.' };
@@ -235,7 +295,6 @@ export const validateApiKey = async (provider: AiProvider, apiKey: string, model
                 break;
             case AiProvider.Claude:
                  url = 'https://api.anthropic.com/v1/messages';
-                 // A cheap ping with an invalid model to check auth
                  options = {
                      method: 'POST',
                      headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'content-type': 'application/json' },
@@ -262,29 +321,7 @@ export const validateApiKey = async (provider: AiProvider, apiKey: string, model
     }
 };
 
-const generateViralTrendPrompt = (niche: string): string => `
-SYSTEM DIRECTIVE
-You are "TrendScout AI," a specialized model that identifies and architects emerging viral content hooks. Your function is to analyze the digital zeitgeist for a given niche and generate 5 SOTA (State-Of-The-Art) viral post concepts that are primed for explosive engagement.
-
-NON-NEGOTIABLE MANDATES
-1.  **Zero Fluff**: Each post must be dense with value, a unique angle, or a powerful emotional trigger. No generic content.
-2.  **Neuro-Optimization**: For each post, you MUST assign a "neuro_score" (a simulated value from 85 to 100) that predicts its scroll-stopping power and shareability. A higher score means a more potent neuro-chemical hook.
-3.  **Trigger Identification**: You MUST identify the primary 'viral_trigger' from this list: ['Awe', 'Humor', 'Social Currency', 'Curiosity Gap', 'Urgency', 'Storytelling', 'Practical Value'].
-4.  **Flawless JSON**: Your entire output MUST be a single, valid JSON object that strictly adheres to the provided schema. No text or commentary outside the JSON.
-
-INPUT PARAMETERS
-- Niche: "${niche}"
-
-EXECUTION
-1.  Scan for current, breaking, or under-the-radar trends within the specified niche.
-2.  For each of the 5 trends, formulate a concise, platform-agnostic post text that captures the essence of the viral hook.
-3.  Assign the most relevant platform (e.g., 'Twitter', 'LinkedIn', 'Instagram').
-4.  Calculate the 'neuro_score' and identify the primary 'viral_trigger'.
-5.  Assemble the final output into the specified JSON format.
-`;
-
 export const generateViralTrends = async (niche: string, config: AiConfig): Promise<ViralPost[]> => {
-    // For now, only Gemini is supported for this new feature to keep it simple.
     if (config.provider !== AiProvider.Gemini) {
         throw new Error("The Viral Vault feature is currently only supported with the Google Gemini provider.");
     }
@@ -293,7 +330,7 @@ export const generateViralTrends = async (niche: string, config: AiConfig): Prom
     if (!apiKey) throw new Error("Google Gemini API Key is not configured.");
     
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = generateViralTrendPrompt(niche);
+    const prompt = `SYSTEM DIRECTIVE: You are "TrendScout AI," a specialized model that identifies and architects emerging viral content hooks for the niche: "${niche}". Generate 5 SOTA (State-Of-The-Art) viral post concepts primed for explosive engagement. For each post, assign a "neuro_score" (85-100) predicting its scroll-stopping power and identify the primary 'viral_trigger' from ['Awe', 'Humor', 'Social Currency', 'Curiosity Gap', 'Urgency', 'Storytelling', 'Practical Value']. Your ENTIRE output MUST be a single, valid JSON object strictly adhering to the provided schema. No text outside the JSON.`;
 
     const response = await ai.models.generateContent({
       model: config.model,
@@ -317,138 +354,435 @@ export const generateViralTrends = async (niche: string, config: AiConfig): Prom
     }
 };
 
-// #endregion
-
-// #region Gemini Implementation
-async function* generateWithGemini(formData: InputFormData, config: AiConfig): AsyncGenerator<StreamChunk> {
+export const generateSchedulingSuggestions = async (formData: InputFormData, analysis: TopicAnalysis, config: AiConfig): Promise<SchedulingSuggestion[]> => {
+    if (config.provider !== AiProvider.Gemini) {
+        console.warn("Scheduling suggestions are only supported for the Gemini provider.");
+        return [];
+    }
     const apiKey = config.apiKey || process.env.API_KEY;
     if (!apiKey) throw new Error("Google Gemini API Key is not configured.");
     
     const ai = new GoogleGenAI({ apiKey });
-    const prompt = generateAdvancedPrompt(formData, config.provider);
 
-    const generationConfig = formData.inputMode === InputMode.Topic
-      ? { 
-          tools: [{ googleSearch: {} }],
+    const prompt = `
+    SYSTEM DIRECTIVE: You are a social media scheduling strategist. Based on the provided campaign analysis, generate optimal posting times.
+
+    CAMPAIGN ANALYSIS:
+    - Goal: ${formData.campaignGoal}
+    - Platforms: ${formData.selectedPlatforms.join(', ')}
+    - Audience Resonance: ${analysis.audience_resonance}
+    - Strategy: ${analysis.campaign_strategy}
+
+    TASK:
+    Based on general social media engagement data and the campaign analysis, provide the best day and time slot to post for EACH platform.
+    Provide a brief 'reasoning' for each suggestion, linking it to the campaign goal or platform norms.
+    
+    Your ENTIRE output MUST be a single, valid JSON object with a root key "suggestions", adhering strictly to the provided schema.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: config.model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: schedulingSuggestionsSchema,
+            },
+        });
+        
+        const jsonText = response.text.trim();
+        const parsed = JSON.parse(jsonText);
+        if (parsed.suggestions && Array.isArray(parsed.suggestions)) {
+            return parsed.suggestions;
         }
-      : { 
-          responseMimeType: "application/json",
-          responseSchema: responseSchema,
+        throw new Error("Invalid JSON structure for suggestions.");
+
+    } catch (e) {
+        console.error("Failed to generate scheduling suggestions:", e);
+        return []; // Return empty array on failure
+    }
+};
+
+export const rewriteText = async (originalText: string, partName: string, instruction: string, config: AiConfig): Promise<string> => {
+    if (config.provider !== AiProvider.Gemini) {
+        throw new Error("Inline editing is currently only supported with the Google Gemini provider.");
+    }
+    const apiKey = config.apiKey || process.env.API_KEY;
+    if (!apiKey) throw new Error("Google Gemini API Key is not configured.");
+    
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt = `
+    SYSTEM DIRECTIVE: You are an expert copy editor AI. Your task is to rewrite a piece of text based on a specific instruction.
+    
+    INSTRUCTION: Rewrite the following '${partName}' to be '${instruction}'.
+    
+    ORIGINAL TEXT:
+    ---
+    ${originalText}
+    ---
+    
+    YOUR OUTPUT:
+    You MUST output ONLY the rewritten text. Do not include any preamble, commentary, or markdown formatting like quotes or backticks.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: config.model,
+            contents: prompt,
+        });
+        return response.text.trim();
+    } catch (e: any) {
+        console.error("Failed to rewrite text:", e);
+        throw new Error(`AI rewrite failed: ${e.message}`);
+    }
+};
+
+export const generateMoreLikeThis = async (sourcePost: GeneratedPost, variation: PostVariation, config: AiConfig): Promise<GeneratedPost[]> => {
+    if (config.provider !== AiProvider.Gemini) {
+        throw new Error("This feature is currently only supported with the Google Gemini provider.");
+    }
+    const apiKey = config.apiKey || process.env.API_KEY;
+    if (!apiKey) throw new Error("Google Gemini API Key is not configured.");
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt = `
+    SYSTEM DIRECTIVE: You are "Cognito-Strategist X," a Tier-1 AI content generator. Your task is to generate TWO new, unique social media posts inspired by the provided example.
+
+    INSPIRATION POST:
+    - Platform: ${sourcePost.platform}
+    - Title: ${variation.post_title}
+    - Text: ${variation.post_text}
+    - Viral Trigger: ${variation.viral_trigger}
+    - Style/Tone: Emulate the professional, value-driven, and engaging tone of the example.
+    - Core Topic: The new posts should be on the same core topic but explore different angles, hooks, or sub-topics.
+
+    CRITICAL INSTRUCTIONS:
+    1.  **DO NOT COPY**: The new posts must be entirely original and not just rephrased versions of the example.
+    2.  **MAINTAIN QUALITY**: Adhere to all the quality mandates of the original generation process (SOTA image prompts, platform-native formatting, viral triggers, etc.).
+    3.  **JSON OUTPUT**: Your output MUST be a single, valid JSON object containing only a "posts" array, adhering strictly to the provided API schema.
+
+    Generate 2 new posts now.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: config.model,
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: postsOnlySchema,
+            }
+        });
+
+        const jsonText = response.text.trim();
+        const parsed = JSON.parse(jsonText);
+        if (parsed.posts && Array.isArray(parsed.posts)) {
+            return parsed.posts;
+        }
+        throw new Error("Invalid JSON structure received from AI for generating more posts.");
+    } catch (e: any) {
+        console.error("Failed to generate more posts like this:", e);
+        throw new Error(`AI generation failed: ${e.message}`);
+    }
+};
+
+
+export const generateClipScript = async (post: GeneratedPost, variation: PostVariation, config: AiConfig): Promise<string> => {
+    if (config.provider !== AiProvider.Gemini) {
+        throw new Error("This feature is currently only supported with the Google Gemini provider.");
+    }
+    const apiKey = config.apiKey || process.env.API_KEY;
+    if (!apiKey) throw new Error("Google Gemini API Key is not configured.");
+
+    const ai = new GoogleGenAI({ apiKey });
+
+    const prompt = `
+    SYSTEM DIRECTIVE: You are a viral video scriptwriter for TikTok, Reels, and YouTube Shorts.
+    
+    TASK: Convert the following social media post into a compelling 30-second video script.
+    
+    SOURCE POST:
+    - Title: ${variation.post_title}
+    - Body: ${variation.post_text}
+    - Image Concept: ${post.image_prompt}
+
+    SCRIPT REQUIREMENTS:
+    1.  **VOICEOVER:** Write a concise, punchy voiceover script, maximum 45 words. It must have a strong hook in the first 3 seconds.
+    2.  **SCENES:** Provide 5 distinct scene descriptions. Each scene should be a visual prompt, similar in style to a high-quality image generation prompt.
+    3.  **FORMAT:** Output the script in Markdown format. Use "VOICEOVER:" and "SCENES:" headers.
+    
+    Example Output:
+    VOICEOVER:
+    You've been told a lie about productivity. The 8-hour workday is dead. Here’s the 3-hour model that billion-dollar startups are using to ship twice as fast.
+    
+    SCENES:
+    1.  A massive, crumbling stone clocktower with vines growing over it, representing the old way of work. Cinematic, moody lighting.
+    2.  An entrepreneur's minimalist, sun-drenched desk with a single laptop and a cup of coffee. The screen shows a rapidly completing task list.
+    3.  Close up on a neural network graph, glowing and pulsing with energy, symbolizing efficient thinking.
+    4.  A team of energized, diverse founders collaborating around a holographic interface, smiling and engaged.
+    5.  A rocket ship launching into a vibrant nebula, symbolizing explosive growth and success.
+
+    Now, generate the script for the provided source post.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: config.model,
+            contents: prompt,
+        });
+        return response.text.trim();
+    } catch (e: any) {
+        console.error("Failed to generate clip script:", e);
+        throw new Error(`AI script generation failed: ${e.message}`);
+    }
+};
+
+
+// #endregion
+
+// #region Gemini Implementation (New & Robust)
+async function generateWithGemini(formData: InputFormData, config: AiConfig): Promise<{ analysisChunk: StreamChunk, groundingChunk: StreamChunk | null, postChunks: StreamChunk[] }> {
+    const apiKey = config.apiKey || process.env.API_KEY;
+    if (!apiKey) throw new Error("Google Gemini API Key is not configured.");
+    const ai = new GoogleGenAI({ apiKey });
+
+    // Phase 1: Analysis Call
+    const analysisPrompt = generateAnalysisPrompt(formData);
+    
+    const tools: any[] = [{ googleSearch: {} }];
+    const toolConfig: any = {};
+    if (formData.userLocation) {
+        tools.push({ googleMaps: {} });
+        toolConfig.retrievalConfig = {
+            latLng: {
+                latitude: formData.userLocation.latitude,
+                longitude: formData.userLocation.longitude
+            }
         };
-
-    const stream = await ai.models.generateContentStream({
-      model: config.model,
-      contents: prompt,
-      config: generationConfig,
-    });
-
-    let accumulatedJson = '';
-    for await (const chunk of stream) {
-        accumulatedJson += chunk.text;
-        const groundingData = chunk.candidates?.[0]?.groundingMetadata as GroundingMetadata;
-        if (groundingData && groundingData.groundingChunks?.length > 0) {
-            yield { type: 'grounding', data: groundingData };
-        }
     }
     
-    yield* parseAndYieldFullJson(accumulatedJson);
+    const analysisResult = await ai.models.generateContent({
+        model: config.model,
+        contents: analysisPrompt,
+        config: { tools, ...(Object.keys(toolConfig).length > 0 && { toolConfig }) },
+    });
+
+    const analysisResponseText = analysisResult.text;
+    const groundingData = analysisResult.candidates?.[0]?.groundingMetadata as GroundingMetadata;
+
+    let jsonToParse: string;
+
+    const firstBrace = analysisResponseText.indexOf('{');
+    if (firstBrace === -1) {
+        throw new Error(`AI failed to generate valid JSON for the analysis phase. No JSON object found. Response: ${analysisResponseText}`);
+    }
+
+    let braceCount = 1;
+    let lastBrace = -1;
+    for (let i = firstBrace + 1; i < analysisResponseText.length; i++) {
+        if (analysisResponseText[i] === '{') braceCount++;
+        else if (analysisResponseText[i] === '}') braceCount--;
+        
+        if (braceCount === 0) {
+            lastBrace = i;
+            break;
+        }
+    }
+
+    if (lastBrace !== -1) {
+        jsonToParse = analysisResponseText.substring(firstBrace, lastBrace + 1);
+    } else {
+        throw new Error(`AI failed to generate valid JSON for the analysis phase. Incomplete JSON object. Response: ${analysisResponseText}`);
+    }
+
+    let analysisData: { topic_analysis: TopicAnalysis };
+    try {
+        analysisData = JSON.parse(jsonToParse);
+    } catch (e) {
+        throw new Error(`Failed to parse analysis JSON. Raw text from AI: ${jsonToParse}`);
+    }
+    
+    if (!analysisData.topic_analysis) {
+        throw new Error("Parsed JSON from analysis phase is missing the 'topic_analysis' key.");
+    }
+    
+    const analysisChunk: StreamChunk = { type: 'analysis', data: analysisData.topic_analysis };
+    const groundingChunk: StreamChunk | null = (groundingData && groundingData.groundingChunks?.length > 0) 
+        ? { type: 'grounding', data: groundingData } 
+        : null;
+
+    // Phase 2: Post Generation Call
+    const postsPrompt = generatePostsPrompt(formData, analysisData.topic_analysis);
+    const postsResult = await ai.models.generateContent({
+        model: config.model,
+        contents: postsPrompt,
+        config: {
+            responseMimeType: "application/json",
+            responseSchema: postsOnlySchema,
+        }
+    });
+
+    const postsResponseText = postsResult.text;
+    let postsData: { posts: GeneratedPost[] };
+    try {
+        postsData = JSON.parse(postsResponseText);
+    } catch(e) {
+        throw new Error(`Failed to parse posts JSON, despite schema enforcement. Raw text: ${postsResponseText}`);
+    }
+
+    if (!postsData.posts || !Array.isArray(postsData.posts)) {
+        throw new Error("API response for posts is missing the 'posts' array.");
+    }
+
+    let finalPosts = postsData.posts;
+
+    // Handle syndication
+    if (formData.syndicate) {
+        const syndicatedPosts: GeneratedPost[] = [];
+        const twitterPost = finalPosts.find(p => p.platform === Platform.Twitter);
+        const instagramPost = finalPosts.find(p => p.platform === Platform.Instagram);
+
+        finalPosts.forEach(originalPost => {
+            // Syndicate to Threads
+            const threadsContent = instagramPost || twitterPost || originalPost;
+            syndicatedPosts.push({ ...threadsContent, platform: Platform.Threads });
+
+            // Syndicate to Bluesky
+            const blueskyContent = twitterPost || originalPost;
+            syndicatedPosts.push({ ...blueskyContent, platform: Platform.Bluesky });
+            
+            // Syndicate to YouTube Shorts
+            const shortsVariation: PostVariation = {
+                ...originalPost.variations[0],
+                variation_name: "YouTube Shorts Idea",
+                post_text: `Script Idea: ${originalPost.image_prompt}`,
+                call_to_action: "Check out the full blog post for more details!",
+            };
+            syndicatedPosts.push({ ...originalPost, platform: Platform.YouTubeShorts, variations: [shortsVariation] });
+        });
+        
+        // Add unique syndicated posts
+        const existingPlatforms = new Set(finalPosts.map(p => p.platform));
+        syndicatedPosts.forEach(sp => {
+            if (!existingPlatforms.has(sp.platform)) {
+                finalPosts.push(sp);
+                existingPlatforms.add(sp.platform);
+            }
+        });
+    }
+
+    const postChunks: StreamChunk[] = finalPosts.map(post => ({ type: 'post', data: post as any }));
+    
+    return { analysisChunk, groundingChunk, postChunks };
 }
 
-const generateImageWithGemini = async (prompt: string, apiKey: string): Promise<string> => {
+const generateImageWithGemini = async (prompt: string, platform: Platform, apiKey: string): Promise<string> => {
     try {
         const ai = new GoogleGenAI({ apiKey });
-        // Switched to gemini-2.5-flash-image which may be more robust for complex, creative prompts.
-        const response = await ai.models.generateContent({
-            model: 'gemini-2.5-flash-image',
-            contents: {
-                parts: [{ text: prompt }],
-            },
+        const response = await ai.models.generateImages({
+            model: 'imagen-4.0-generate-001',
+            prompt: prompt,
             config: {
-                responseModalities: [Modality.IMAGE],
+              numberOfImages: 1,
+              outputMimeType: 'image/jpeg',
+              aspectRatio: ASPECT_RATIOS[platform],
             },
         });
 
-        // The response structure for this model returns image data in the parts array.
-        const imagePart = response.candidates?.[0]?.content?.parts?.find(part => part.inlineData);
+        const firstImage = response.generatedImages?.[0];
 
-        if (imagePart && imagePart.inlineData) {
-            const base64ImageBytes: string = imagePart.inlineData.data;
-            const mimeType = imagePart.inlineData.mimeType;
-            return `data:${mimeType};base64,${base64ImageBytes}`;
+        const feedback = (firstImage as any)?.promptFeedback;
+        if (feedback?.blockReason) {
+             const reason = feedback.blockReason;
+             throw new Error(`Image generation blocked by safety filters. Reason: ${reason}.`);
         }
-        
-        console.error("Invalid response structure from Gemini image API (gemini-2.5-flash-image):", response);
-        // Check for safety ratings or finish reason to provide a more specific error.
-        const finishReason = response.candidates?.[0]?.finishReason;
-        if (finishReason === 'SAFETY' || finishReason === 'RECITATION') {
-             throw new Error(`The image was not generated due to safety filters or recitation policies. Finish reason: ${finishReason}.`);
+
+        const base64ImageBytes: string | undefined = firstImage?.image?.imageBytes;
+
+        if (base64ImageBytes) {
+            return `data:image/jpeg;base64,${base64ImageBytes}`;
         }
-        
+
+        console.error("Invalid response structure from Gemini image API (imagen-4.0):", response);
         throw new Error("The API returned an unexpected or empty response for the image.");
 
     } catch (error: any) {
-        console.error("Error generating image with Gemini:", error);
-        let errorMessage = "An error occurred during image generation.";
-        if (error.message) {
-            errorMessage = error.message;
+        console.error("Error generating image with Gemini Imagen 4.0:", error);
+        let errorMessage = error.message || "An unknown error occurred during image generation.";
+
+        try {
+            // Attempt to parse a JSON error message from the API for better readability
+            const errorJson = JSON.parse(errorMessage);
+            if (errorJson?.error?.message) {
+                errorMessage = errorJson.error.message;
+            }
+        } catch (e) {
+            // Not a JSON error, use the raw message
         }
+        
         if (errorMessage.includes("API key not valid")) {
-             errorMessage = "Your Google API key is not valid. Please check your configuration.";
+             errorMessage = "Your Google API key is invalid or lacks permissions for this model.";
+        } else if (errorMessage.includes("404") || errorMessage.includes("not found")) {
+            errorMessage = "The requested model 'imagen-4.0-generate-001' may not be available for your project or key."
         }
+
         throw new Error(`[Gemini Image] ${errorMessage}`);
     }
 };
 // #endregion
 
 // #region OpenAPI-Compatible Implementation
+
 async function* generateWithOpenApi(formData: InputFormData, config: AiConfig): AsyncGenerator<StreamChunk> {
-    const { provider, apiKey, model } = config;
-    if (!apiKey) throw new Error(`API Key for ${provider} is not configured.`);
+    const { provider } = config;
+
+    // Phase 1: Generate a mock analysis since non-Gemini providers lack search tools.
+    const mockAnalysis: TopicAnalysis = {
+        campaign_strategy: `A targeted campaign for "${formData.topic || formData.sourceUrl}" to achieve ${formData.campaignGoal}.`,
+        trend_alignment: "Content is aligned with evergreen topics and common questions in the niche.",
+        audience_resonance: `Addressing the core needs of the audience interested in ${formData.topic || formData.sourceUrl}.`,
+        content_gaps: "Focusing on providing clear, actionable advice.",
+        viral_hooks: ["A surprising fact", "A common mistake to avoid", "A simple how-to guide"],
+    };
+    yield { type: 'analysis', data: mockAnalysis };
+
+    // Phase 2: Generate posts using the unified prompt with the mock analysis.
+    const postsPrompt = generatePostsPrompt(formData, mockAnalysis);
     
-    const { url, headers, body } = getOpenApiRequestConfig(formData, config);
+    const { url, headers, body } = getOpenApiRequestConfig(postsPrompt, config);
     
     const response = await fetch(url, { method: 'POST', headers, body: JSON.stringify(body) });
 
     if (!response.ok) {
-        const err = await response.json();
+        const err = await response.json().catch(() => ({ error: { message: `HTTP ${response.status} ${response.statusText}`}}));
         throw new Error(`[${provider}] API Error (${response.status}): ${err.error?.message || JSON.stringify(err)}`);
     }
-    
-    if (!response.body) throw new Error("Response body is empty.");
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    let accumulatedJson = '';
-    
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        
-        const chunk = decoder.decode(value, { stream: true });
-        const lines = chunk.split('\n').filter(line => line.startsWith('data: '));
-        
-        for (const line of lines) {
-            if (line.includes('[DONE]')) continue;
-            try {
-                const jsonStr = line.replace('data: ', '');
-                const parsed = JSON.parse(jsonStr);
-                const delta = provider === AiProvider.Claude 
-                  ? parsed.delta?.text
-                  : parsed.choices?.[0]?.delta?.content;
-                
-                if (delta) {
-                    accumulatedJson += delta;
-                }
-            } catch (e) {
-                // Ignore parsing errors for incomplete JSON chunks
-            }
-        }
+    const fullJson = await response.json();
+    const responseText = provider === AiProvider.Claude 
+        ? fullJson.content[0].text
+        : fullJson.choices[0].message.content;
+
+    let postsData: { posts: GeneratedPost[] };
+    try {
+        postsData = JSON.parse(responseText.trim());
+    } catch (e) {
+        throw new Error(`Failed to parse posts JSON from ${provider}. Raw text: ${responseText}`);
     }
     
-    yield* parseAndYieldFullJson(accumulatedJson);
+    if (!postsData.posts || !Array.isArray(postsData.posts)) {
+        throw new Error(`API response for posts from ${provider} is missing the 'posts' array.`);
+    }
+
+    // Phase 3: Yield post chunks.
+    for (const post of postsData.posts) {
+        yield { type: 'post', data: post as any };
+    }
 }
 
-const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'https://api.openai.com/v1/images/generations', model = 'dall-e-3'): Promise<string> => {
+const generateImageWithOpenAI = async (prompt: string, platform: Platform, apiKey: string, url = 'https://api.openai.com/v1/images/generations', model = 'dall-e-3'): Promise<string> => {
     const isOpenRouter = url.includes('openrouter.ai');
     const providerName = isOpenRouter ? 'OpenRouter' : 'OpenAI';
 
@@ -462,6 +796,13 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
         headers['X-Title'] = 'Viral Post Co-pilot AI';
     }
 
+    const getDalleSize = (platform: Platform): '1024x1024' | '1792x1024' | '1024x1792' => {
+        const ratio = ASPECT_RATIOS[platform];
+        if (ratio === '16:9') return '1792x1024';
+        if (ratio === '9:16' || ratio === '3:4') return '1024x1792';
+        return '1024x1024'; // Default to square
+    };
+
     try {
         const response = await fetch(url, {
             method: 'POST',
@@ -470,7 +811,7 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
                 model: model,
                 prompt: prompt,
                 n: 1,
-                size: '1024x1024',
+                size: getDalleSize(platform),
                 response_format: 'b64_json',
                 quality: 'hd',
                 style: 'vivid'
@@ -508,7 +849,7 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
         if (!data?.data?.[0]?.b64_json) {
             console.error(`Invalid response structure from ${providerName} image generation API:`, data);
             const detail = data?.error?.message ? ` Details: ${data.error.message}` : '';
-            throw new Error(`The API returned an unexpected response structure. This can happen if a prompt is blocked by safety filters.${detail}`);
+            throw new Error(`The API returned an unexpected response structure. This can happen if a prompt is blocked by a safety filter.${detail}`);
         }
 
         return `data:image/jpeg;base64,${data.data[0].b64_json}`;
@@ -520,13 +861,11 @@ const generateImageWithOpenAI = async (prompt: string, apiKey: string, url = 'ht
 };
 
 
-function getOpenApiRequestConfig(formData: InputFormData, config: AiConfig) {
+function getOpenApiRequestConfig(prompt: string, config: AiConfig) {
     const { provider, apiKey, model } = config;
-    const prompt = generateAdvancedPrompt(formData, provider);
     const commonBody = {
         model,
         messages: [{ role: 'user', content: prompt }],
-        stream: true,
         temperature: 0.7,
         top_p: 0.9,
     };
@@ -542,7 +881,7 @@ function getOpenApiRequestConfig(formData: InputFormData, config: AiConfig) {
              return {
                 url: 'https://api.anthropic.com/v1/messages',
                 headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01', 'Content-Type': 'application/json' },
-                body: { ...commonBody, max_tokens: 4096 }, // Claude requires max_tokens
+                body: { ...commonBody, max_tokens: 4096 },
             };
         case AiProvider.OpenRouter:
              return {
@@ -577,8 +916,6 @@ function* parseAndYieldFullJson(responseString: string): Generator<StreamChunk, 
         if (parsedData.topic_analysis) {
             yield { type: 'analysis', data: parsedData.topic_analysis };
             yieldedData = true;
-        } else {
-             console.warn("`topic_analysis` is missing from the AI response.", parsedData);
         }
 
         if (Array.isArray(parsedData.posts)) {
@@ -586,8 +923,6 @@ function* parseAndYieldFullJson(responseString: string): Generator<StreamChunk, 
                 yield { type: 'post', data: post };
                 yieldedData = true;
             }
-        } else {
-             console.warn("`posts` is not an array or is missing from the AI response.", parsedData);
         }
         
         if (!yieldedData) {

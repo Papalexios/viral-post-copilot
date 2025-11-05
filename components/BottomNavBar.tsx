@@ -8,6 +8,7 @@ import { PublishIcon } from './icons/PublishIcon';
 import { BookOpenIcon } from './icons/BookOpenIcon';
 import type { ActiveView } from '../App';
 import { TrendingUpIcon } from './icons/TrendingUpIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
 
 
 interface BottomNavBarProps {
@@ -44,6 +45,12 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeView, setActiv
             onClick={() => setActiveView('generator')}
         />
         <NavItem
+            icon={<CalendarIcon className="w-6 h-6" />}
+            label="Plan"
+            isActive={activeView === 'scheduler'}
+            onClick={() => setActiveView('scheduler')}
+        />
+        <NavItem
             icon={<TrendingUpIcon className="w-6 h-6" />}
             label="Vault"
             isActive={activeView === 'vault'}
@@ -54,12 +61,6 @@ export const BottomNavBar: React.FC<BottomNavBarProps> = ({ activeView, setActiv
             label="History"
             isActive={activeView === 'history'}
             onClick={() => setActiveView('history')}
-        />
-        <NavItem
-            icon={<BookOpenIcon className="w-6 h-6" />}
-            label="Docs"
-            isActive={activeView === 'resources'}
-            onClick={() => setActiveView('resources')}
         />
         <NavItem
             icon={<PublishIcon className="w-6 h-6" />}
