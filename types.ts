@@ -6,9 +6,6 @@ export enum Platform {
   Pinterest = 'Pinterest',
   LinkedIn = 'LinkedIn',
   Twitter = 'Twitter',
-  Threads = 'Threads',
-  Bluesky = 'Bluesky',
-  YouTubeShorts = 'YouTube Shorts',
 }
 
 export enum Tone {
@@ -22,7 +19,6 @@ export enum Tone {
 export enum InputMode {
   Topic = 'Topic / Keyword',
   URLSitemap = 'URL / Sitemap',
-  GeoTopic = 'Geo-Targeted Topic',
 }
 
 export enum CampaignGoal {
@@ -40,28 +36,31 @@ export interface ViralBreakdown {
   engagement_triggers: number;
 }
 
-export type ViralTrigger = 'Awe' | 'Humor' | 'Social Currency' | 'Curiosity Gap' | 'Urgency' | 'Storytelling' | 'Practical Value';
-
 export interface PostVariation {
     variation_name: string;
     post_title: string;
     post_text: string;
     call_to_action: string;
-    hashtags: string[];
     share_snippet: string;
-    viral_trigger: ViralTrigger;
+    viral_trigger: string;
 }
 
 export type WordPressPostStatus = 'idle' | 'publishing' | 'published' | 'error';
 
+export interface HashtagStrategy {
+    core: string[];
+    niche: string[];
+    trending: string[];
+}
+
 export interface GeneratedPost {
-  id: string;
   platform: Platform;
   variations: PostVariation[];
   image_prompt: string;
   viral_score: number;
   viral_breakdown: ViralBreakdown;
   optimization_notes: string;
+  hashtag_strategy: HashtagStrategy;
   funnel_stage?: 'Awareness' | 'Engagement' | 'Conversion';
   sourceUrl?: string;
   // Image generation status
@@ -73,22 +72,16 @@ export interface GeneratedPost {
   wordpressStatus: WordPressPostStatus;
   wordpressUrl?: string;
   wordpressError?: string;
-  // Scheduling status
-  isScheduled?: boolean;
-  scheduledDate?: number; // timestamp
-  performanceMetrics?: {
-      impressions?: number;
-      engagementRate?: number;
-      conversions?: number;
-  };
-  // In-app editing status
-  rewritingPart?: 'post_title' | 'post_text' | 'call_to_action' | 'image_prompt' | null;
-  // New SOTA features
-  paa_block_html?: string;
-  schema_org_jsonld?: string;
-  internal_links_html?: string;
-  clipScript?: string;
-  clipScriptIsLoading?: boolean;
+}
+
+export interface SEOKeywords {
+    primary: string[];
+    secondary: string[];
+    lsi: string[];
+}
+
+export interface AnswerEngineStrategy {
+    suggested_faqs: string[];
 }
 
 export interface TopicAnalysis {
@@ -97,6 +90,10 @@ export interface TopicAnalysis {
     audience_resonance: string;
     content_gaps: string;
     viral_hooks: string[];
+    seo_keywords?: SEOKeywords;
+    answer_engine_strategy?: AnswerEngineStrategy;
+    publishing_cadence?: string[];
+    hashtag_strategy?: HashtagStrategy;
 }
 
 // Type for Google Search grounding results
@@ -106,31 +103,17 @@ export interface WebGroundingSource {
 }
 
 export interface MapsGroundingSource {
-    uri: string;
-    title: string;
-    placeAnswerSources?: {
-        reviewSnippets?: {
-            text: string;
-            author: string;
-        }[];
-    };
+  uri: string;
+  title: string;
 }
 
-export interface GroundingChunk {
-  web?: WebGroundingSource;
-  maps?: MapsGroundingSource;
-}
+export type GroundingChunk = 
+  | { web: WebGroundingSource; maps?: never }
+  | { maps: MapsGroundingSource; web?: never };
 
 
 export interface GroundingMetadata {
     groundingChunks: GroundingChunk[];
-}
-
-export interface SchedulingSuggestion {
-    platform: Platform;
-    dayOfWeek: 'Monday' | 'Tuesday' | 'Wednesday' | 'Thursday' | 'Friday' | 'Saturday' | 'Sunday';
-    timeOfDay: string; // e.g., "9:00 AM - 11:00 AM"
-    reasoning: string;
 }
 
 export interface ApiResponse {
@@ -138,12 +121,10 @@ export interface ApiResponse {
     id: string;
     campaignTitle: string;
     timestamp: number;
-    tone: Tone;
     // Core response
     topic_analysis: TopicAnalysis;
     posts: GeneratedPost[];
     groundingMetadata?: GroundingMetadata;
-    schedulingSuggestions?: SchedulingSuggestion[];
 }
 
 export interface InputFormData {
@@ -155,11 +136,7 @@ export interface InputFormData {
   campaignGoal: CampaignGoal;
   postCount: number;
   trendBoost: boolean;
-  syndicate: boolean;
-  userLocation?: {
-    latitude: number;
-    longitude: number;
-  };
+  location?: string;
 }
 
 export interface ViralPost {
@@ -194,5 +171,5 @@ export interface WordPressConfig {
 // Type for the chunks yielded by the generator stream
 export type StreamChunk = 
     | { type: 'analysis'; data: TopicAnalysis }
-    | { type: 'post'; data: Omit<GeneratedPost, 'id' | 'wordpressStatus' | 'isScheduled' | 'rewritingPart' | 'clipScript' | 'clipScriptIsLoading'> }
+    | { type: 'post'; data: GeneratedPost }
     | { type: 'grounding'; data: GroundingMetadata };

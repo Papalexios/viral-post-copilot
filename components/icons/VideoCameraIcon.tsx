@@ -1,7 +1,6 @@
-
 import React from 'react';
 
-export const VideoIcon: React.FC<{ className?: string }> = ({ className }) => (
+export const VideoCameraIcon: React.FC<{ className?: string }> = ({ className }) => (
   <svg
     xmlns="http://www.w3.org/2000/svg"
     width="24"
@@ -14,7 +13,7 @@ export const VideoIcon: React.FC<{ className?: string }> = ({ className }) => (
     strokeLinejoin="round"
     className={className}
   >
-    <polygon points="23 7 16 12 23 17 23 7"></polygon>
+    <path d="m23 7-7 5 7 5V7z"></path>
     <rect x="1" y="5" width="15" height="14" rx="2" ry="2"></rect>
   </svg>
 );

@@ -1,4 +1,3 @@
-
 import React from 'react';
 import type { TopicAnalysis, GroundingMetadata } from '../types';
 import { SparklesIcon } from './icons/SparklesIcon';
@@ -7,6 +6,9 @@ import { TrendingUpIcon } from './icons/TrendingUpIcon';
 import { UsersIcon } from './icons/UsersIcon';
 import { LightbulbIcon } from './icons/LightbulbIcon';
 import { MagnetIcon } from './icons/MagnetIcon';
+import { KeyIcon } from './icons/KeyIcon';
+import { QuestionMarkCircleIcon } from './icons/QuestionMarkCircleIcon';
+import { CalendarIcon } from './icons/CalendarIcon';
 
 interface AnalysisDisplayProps {
   analysis: TopicAnalysis;
@@ -18,9 +20,12 @@ const titleToIconMap: { [key: string]: React.FC<{ className?: string }> } = {
   'Audience Resonance': UsersIcon,
   'Content Gaps Identified': LightbulbIcon,
   'Top Viral Hooks': MagnetIcon,
+  'SEO Keyword Clusters': KeyIcon,
+  'Answer Engine Strategy': QuestionMarkCircleIcon,
+  'Publishing Cadence': CalendarIcon,
 };
 
-const AnalysisItem: React.FC<{ title: string, content: string | string[] }> = ({ title, content }) => {
+const AnalysisItem: React.FC<{ title: string, children: React.ReactNode }> = ({ title, children }) => {
     const Icon = titleToIconMap[title];
     return (
         <div className="bg-slate-100 dark:bg-slate-800/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
@@ -28,15 +33,7 @@ const AnalysisItem: React.FC<{ title: string, content: string | string[] }> = ({
                 {Icon && <Icon className="w-5 h-5 flex-shrink-0" />}
                 <span>{title}</span>
             </h4>
-            {Array.isArray(content) ? (
-                <ul className="list-disc list-inside space-y-1">
-                    {content.map((item, index) => (
-                        <li key={index} className="text-slate-700 dark:text-slate-300 text-sm">{item}</li>
-                    ))}
-                </ul>
-            ) : (
-                <p className="text-slate-700 dark:text-slate-300 text-sm">{content}</p>
-            )}
+            {children}
         </div>
     );
 };
@@ -56,11 +53,57 @@ export const AnalysisDisplay: React.FC<AnalysisDisplayProps> = ({ analysis, grou
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-        <AnalysisItem title="Trend Alignment" content={analysis.trend_alignment} />
-        <AnalysisItem title="Audience Resonance" content={analysis.audience_resonance} />
-        <AnalysisItem title="Content Gaps Identified" content={analysis.content_gaps} />
-        <AnalysisItem title="Top Viral Hooks" content={analysis.viral_hooks} />
+        <AnalysisItem title="Trend Alignment">
+            <p className="text-slate-700 dark:text-slate-300 text-sm">{analysis.trend_alignment}</p>
+        </AnalysisItem>
+        <AnalysisItem title="Audience Resonance">
+            <p className="text-slate-700 dark:text-slate-300 text-sm">{analysis.audience_resonance}</p>
+        </AnalysisItem>
+        <AnalysisItem title="Content Gaps Identified">
+            <p className="text-slate-700 dark:text-slate-300 text-sm">{analysis.content_gaps}</p>
+        </AnalysisItem>
+        <AnalysisItem title="Top Viral Hooks">
+             <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 text-sm">
+                {analysis.viral_hooks.map((item, index) => <li key={index}>{item}</li>)}
+            </ul>
+        </AnalysisItem>
+
+        {analysis.seo_keywords && (
+            <AnalysisItem title="SEO Keyword Clusters">
+                <div className="space-y-2 text-sm">
+                    <div>
+                        <p className="font-semibold text-slate-600 dark:text-slate-400 text-xs">PRIMARY</p>
+                        <p className="text-slate-700 dark:text-slate-300">{analysis.seo_keywords.primary?.join(', ')}</p>
+                    </div>
+                     <div>
+                        <p className="font-semibold text-slate-600 dark:text-slate-400 text-xs">SECONDARY</p>
+                        <p className="text-slate-700 dark:text-slate-300">{analysis.seo_keywords.secondary?.join(', ')}</p>
+                    </div>
+                     <div>
+                        <p className="font-semibold text-slate-600 dark:text-slate-400 text-xs">LSI / LONG-TAIL</p>
+                        <p className="text-slate-700 dark:text-slate-300">{analysis.seo_keywords.lsi?.join(', ')}</p>
+                    </div>
+                </div>
+            </AnalysisItem>
+        )}
+         {analysis.answer_engine_strategy?.suggested_faqs && (
+            <AnalysisItem title="Answer Engine Strategy">
+                 <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 text-sm">
+                    {analysis.answer_engine_strategy.suggested_faqs.map((item, index) => <li key={index}>{item}</li>)}
+                </ul>
+            </AnalysisItem>
+        )}
       </div>
+      
+       {analysis.publishing_cadence && analysis.publishing_cadence.length > 0 && (
+         <div className="mt-4">
+            <AnalysisItem title="Publishing Cadence">
+                 <ul className="list-disc list-inside space-y-1 text-slate-700 dark:text-slate-300 text-sm">
+                    {analysis.publishing_cadence.map((item, index) => <li key={index}>{item}</li>)}
+                </ul>
+            </AnalysisItem>
+        </div>
+      )}
 
       {groundingMetadata && groundingMetadata.groundingChunks.length > 0 && (
           <div className="mt-6">

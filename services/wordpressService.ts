@@ -84,12 +84,19 @@ export const publishPostToWordPress = async (post: GeneratedPost, variationIndex
     const featuredMediaId = await uploadImageToWordPress(post.imageDataUrl, config);
 
     // 2. Combine content for publishing
+    // Fix for trying to access non-existent 'hashtags' property. Hashtags are on post.hashtag_strategy.
+    const allHashtags = [
+        ...(post.hashtag_strategy?.core || []),
+        ...(post.hashtag_strategy?.niche || []),
+        ...(post.hashtag_strategy?.trending || []),
+    ].join(' ');
+
     const postContent = `
         ${variation.post_text}
         <br><br>
         <p><em>${variation.call_to_action}</em></p>
         <br>
-        <p>${variation.hashtags || ''}</p>
+        <p>${allHashtags}</p>
     `.trim();
 
     // 3. Create the post

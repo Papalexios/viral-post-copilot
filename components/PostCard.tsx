@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
-import type { GeneratedPost, PostVariation, Platform, SchedulingSuggestion } from '../types';
+import React, { useState, useEffect } from 'react';
+import type { GeneratedPost, PostVariation, Platform, HashtagStrategy } from '../types';
 import { PLATFORMS } from '../constants';
 import { CopyIcon } from './icons/CopyIcon';
 import { CheckIcon } from './icons/CheckIcon';
@@ -8,38 +8,28 @@ import { WordPressIcon } from './icons/WordPressIcon';
 import { SkeletonLoader } from './SkeletonLoader';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
-import { CalendarIcon } from './icons/CalendarIcon';
-import { MagicWandIcon } from './icons/MagicWandIcon';
-import { VideoIcon } from './icons/VideoIcon';
-import { LayersIcon } from './icons/LayersIcon';
+import { VideoCameraIcon } from './icons/VideoCameraIcon';
 
 const RedoIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M23 4v6h-6"></path>
     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
   </svg>
 );
 
-const SEOMetaIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.72"></path>
-    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.72-1.72"></path>
+const LayersIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
+    <polyline points="2 17 12 22 22 17"></polyline>
+    <polyline points="2 12 12 17 22 12"></polyline>
   </svg>
 );
 
-
 interface PostCardProps {
   post: GeneratedPost;
-  postIndex: number;
-  schedulingSuggestions?: SchedulingSuggestion[];
   onRegenerate: () => void;
   onPublish: (variationIndex: number) => void;
   isWordPressConfigured: boolean;
-  onNavigateToScheduler: () => void;
-  onRewrite: (variationIndex: number, part: 'post_title' | 'post_text' | 'call_to_action' | 'image_prompt', instruction: string) => void;
-  onGenerateMore: (variationIndex: number) => void;
-  onSchedulePost: (postId: string, date: number) => void;
-  onGenerateClipScript: (postIndex: number, variationIndex: number) => void;
 }
 
 const ViralScoreIndicator: React.FC<{ score: number }> = ({ score }) => {
@@ -75,7 +65,7 @@ const ImageDisplay: React.FC<{ post: GeneratedPost; onRegenerate: () => void; }>
           {post.imageDataUrl && (
              <a 
                 href={post.imageDataUrl} 
-                download={`amfs-ai-campaign-image-${Date.now()}.webp`}
+                download={`amfs-ai-campaign-image-${Date.now()}.jpeg`}
                 className="flex items-center gap-2 px-4 py-2 bg-slate-800/80 border border-slate-600 rounded-full text-white hover:bg-slate-700 transition-colors active:scale-95" 
                 aria-label="Download Image"
              >
@@ -91,11 +81,14 @@ const ImageDisplay: React.FC<{ post: GeneratedPost; onRegenerate: () => void; }>
 
 const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation }> = ({ post, variation }) => {
     const BrandIcon = () => <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-green-400 flex-shrink-0"></div>;
-    const hashtagsText = Array.isArray(variation.hashtags) ? variation.hashtags.join(' ') : variation.hashtags;
-    
+    const combinedHashtags = [
+      ...(post.hashtag_strategy?.core || []),
+      ...(post.hashtag_strategy?.niche || []),
+      ...(post.hashtag_strategy?.trending || [])
+    ].join(' ');
+
     switch(post.platform) {
         case 'Twitter':
-        case 'Bluesky':
             return (
                 <div className="bg-white dark:bg-slate-950 text-black dark:text-white p-4 rounded-xl font-[Helvetica] border border-slate-200 dark:border-slate-700 w-full text-left">
                     <div className="flex items-center gap-3">
@@ -105,13 +98,11 @@ const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation 
                         </div>
                     </div>
                     <p className="my-3 text-slate-800 dark:text-slate-200 whitespace-pre-wrap">{variation.post_text}</p>
-                    {hashtagsText && <p className="text-cyan-600 dark:text-cyan-400 mt-2 text-sm">{hashtagsText}</p>}
+                    {combinedHashtags && <p className="text-cyan-600 dark:text-cyan-400 mt-2 text-sm">{combinedHashtags}</p>}
                     {post.imageUrl && post.imageUrl !== 'error' && <img src={post.imageUrl} className="rounded-xl border border-slate-200 dark:border-slate-700 mt-2" />}
-                    {post.paa_block_html && <div className="mt-4 text-sm" dangerouslySetInnerHTML={{ __html: post.paa_block_html }} />}
                 </div>
             );
         case 'Instagram':
-        case 'Threads':
              return (
                 <div className="bg-white dark:bg-slate-950 text-black dark:text-white rounded-xl border border-slate-200 dark:border-slate-700 w-full text-left overflow-hidden">
                     <div className="p-3 flex items-center gap-3">
@@ -124,12 +115,11 @@ const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation 
                     <div className="p-3 text-sm">
                         <p><strong className="mr-1">yourbrand</strong>{variation.post_text}</p>
                         <p className="text-slate-500 mt-2">{variation.call_to_action}</p>
-                        {hashtagsText && <p className="text-cyan-600 dark:text-cyan-400 mt-2">{hashtagsText}</p>}
-                        {post.paa_block_html && <div className="mt-4" dangerouslySetInnerHTML={{ __html: post.paa_block_html }} />}
+                        {combinedHashtags && <p className="text-cyan-600 dark:text-cyan-400 mt-2">{combinedHashtags}</p>}
                     </div>
                 </div>
             );
-        default: // LinkedIn, Facebook, YouTube Shorts etc.
+        default: // LinkedIn, Facebook, etc.
              return (
                 <div className="bg-white text-slate-900 p-4 rounded-lg w-full text-left font-sans border border-slate-200">
                     <div className="flex items-center gap-3">
@@ -143,8 +133,7 @@ const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation 
                     <p className="my-3 text-slate-800 whitespace-pre-wrap">{variation.post_text}</p>
                      {post.imageUrl && post.imageUrl !== 'error' && <img src={post.imageUrl} className="rounded-lg" />}
                      <p className="text-slate-600 mt-3 font-semibold">{variation.call_to_action}</p>
-                     {hashtagsText && <p className="text-cyan-600 dark:text-cyan-400 mt-2 text-sm">{hashtagsText}</p>}
-                     {post.paa_block_html && <div className="mt-4 text-sm" dangerouslySetInnerHTML={{ __html: post.paa_block_html }} />}
+                     {combinedHashtags && <p className="text-cyan-600 dark:text-cyan-400 mt-2 text-sm">{combinedHashtags}</p>}
                 </div>
             );
     }
@@ -166,130 +155,68 @@ const FunnelStageBadge: React.FC<{ stage?: string }> = ({ stage }) => {
     );
 };
 
-// #region Editable Components
-interface RewritePopoverProps {
-    onRewrite: (instruction: string) => void;
-    onClose: () => void;
-}
-const RewritePopover: React.FC<RewritePopoverProps> = ({ onRewrite, onClose }) => {
-    const popoverRef = useRef<HTMLDivElement>(null);
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (popoverRef.current && !popoverRef.current.contains(event.target as Node)) {
-                onClose();
+const VideoScriptDisplay: React.FC<{ script: string }> = ({ script }) => (
+    <div className="bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap font-mono">
+        {script.split('\n').map((line, index) => {
+            if (line.toUpperCase().startsWith('SCENE:')) {
+                return <p key={index} className="text-purple-600 dark:text-purple-400 font-bold mt-2">{line}</p>;
             }
-        };
-        document.addEventListener('mousedown', handleClickOutside);
-        return () => document.removeEventListener('mousedown', handleClickOutside);
-    }, [onClose]);
+            if (line.toUpperCase().startsWith('VO:')) {
+                return <p key={index} className="text-slate-700 dark:text-slate-300">{line}</p>;
+            }
+            return <p key={index}>{line}</p>;
+        })}
+    </div>
+);
 
-    const actions = ["Shorter", "Longer", "More Witty", "More Professional", "More Casual"];
+const HashtagStrategyDisplay: React.FC<{ strategy?: HashtagStrategy, onCopy: (text: string, id: string) => void, copyState: boolean }> = ({ strategy, onCopy, copyState }) => {
+    if (!strategy) return null;
+
+    const allHashtags = [
+        ...(strategy.core || []),
+        ...(strategy.niche || []),
+        ...(strategy.trending || [])
+    ].join(' ');
+
+    const renderTier = (title: string, tags?: string[]) => {
+        if (!tags || tags.length === 0) return null;
+        return (
+            <div>
+                <p className="font-semibold text-slate-600 dark:text-slate-400 text-xs uppercase tracking-wider">{title}</p>
+                <p className="text-cyan-600 dark:text-cyan-400 font-mono text-xs">{tags.join(' ')}</p>
+            </div>
+        );
+    };
 
     return (
-        <div ref={popoverRef} className="absolute z-10 bottom-full mb-2 w-48 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-xl animate-fade-in-up">
-            <div className="p-1">
-                {actions.map(action => (
-                    <button key={action} onClick={() => { onRewrite(action); onClose(); }} className="w-full text-left px-3 py-1.5 text-sm rounded-md hover:bg-slate-100 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200">
-                        {action}
-                    </button>
-                ))}
+        <div className="mt-3">
+            <div className="flex justify-between items-center mb-2">
+                <h5 className="text-sm font-semibold text-slate-600 dark:text-slate-300">Hashtag Intelligence</h5>
+                <button onClick={() => onCopy(allHashtags, 'hashtags-all')} className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white transition-colors active:scale-95">
+                    {copyState ? <CheckIcon className="w-4 h-4 text-green-500" /> : <CopyIcon className="w-4 h-4" />}
+                    {copyState ? 'Copied!' : 'Copy All'}
+                </button>
+            </div>
+            <div className="bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md space-y-2">
+                {renderTier('Core', strategy.core)}
+                {renderTier('Niche', strategy.niche)}
+                {renderTier('Trending', strategy.trending)}
             </div>
         </div>
     );
 };
 
 
-interface EditableTextBlockProps {
-    text: string;
-    isLoading: boolean;
-    onRewrite: (instruction: string) => void;
-    className?: string;
-    isMono?: boolean;
-}
-
-const EditableTextBlock: React.FC<EditableTextBlockProps> = ({ text, isLoading, onRewrite, className, isMono = false }) => {
-    const [isPopoverOpen, setIsPopoverOpen] = useState(false);
-
-    return (
-        <div className={`relative group ${isMono ? 'font-mono' : ''}`}>
-            {isLoading && <SkeletonLoader />}
-            <p className={`${className} ${isLoading ? 'opacity-50' : ''}`}>{text}</p>
-            {!isLoading && (
-                 <button 
-                    onClick={() => setIsPopoverOpen(true)}
-                    className="absolute top-1 right-1 p-1 rounded-full bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-cyan-100 dark:hover:bg-cyan-800/50 hover:text-cyan-600 dark:hover:text-cyan-300"
-                    aria-label="Rewrite text"
-                 >
-                    <MagicWandIcon className="w-4 h-4" />
-                </button>
-            )}
-            {isPopoverOpen && <RewritePopover onRewrite={onRewrite} onClose={() => setIsPopoverOpen(false)} />}
-        </div>
-    );
-};
-// #endregion
-
-const PostCardComponent: React.FC<PostCardProps> = ({ post, postIndex, schedulingSuggestions, onRegenerate, onPublish, isWordPressConfigured, onNavigateToScheduler, onRewrite, onGenerateMore, onSchedulePost, onGenerateClipScript }) => {
+export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublish, isWordPressConfigured }) => {
   const [copyStates, setCopyStates] = useState<{ [key: string]: boolean }>({});
   const [showDetails, setShowDetails] = useState(false);
   const [activeVariationIndex, setActiveVariationIndex] = useState(0);
-  const [viewMode, setViewMode] = useState<'content' | 'preview' | 'video' | 'seo'>('content');
+  const [viewMode, setViewMode] = useState<'content' | 'preview'>('content');
 
   const platformInfo = PLATFORMS.find(p => p.name === post.platform);
   const IconComponent = platformInfo?.icon;
-  
-  const suggestion = schedulingSuggestions?.find(s => s.platform === post.platform);
-  let suggestedDate: Date | null = null;
-  if (suggestion) {
-    const getNextDateForDay = (dayName: string, timeStr: string): Date | null => {
-        const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const targetDay = days.indexOf(dayName);
-        if (targetDay === -1) return null;
-
-        const timeMatch = timeStr.match(/(\d+):(\d+)\s*(AM|PM)/i);
-        if (!timeMatch) return null;
-        
-        let [, hoursStr, minutesStr, period] = timeMatch;
-        let hours = parseInt(hoursStr, 10);
-        const minutes = parseInt(minutesStr, 10);
-
-        if (period.toUpperCase() === 'PM' && hours < 12) hours += 12;
-        if (period.toUpperCase() === 'AM' && hours === 12) hours = 0;
-
-        const today = new Date();
-        const resultDate = new Date();
-        resultDate.setDate(today.getDate() + (targetDay + 7 - today.getDay()) % 7);
-        
-        if (resultDate.getTime() < today.getTime() && resultDate.toDateString() === today.toDateString()) {
-             resultDate.setDate(resultDate.getDate() + 7);
-        } else if (resultDate < today) {
-             resultDate.setDate(resultDate.getDate() + 7);
-        }
-
-        resultDate.setHours(hours, minutes, 0, 0);
-        return resultDate;
-    };
-    const timeToParse = suggestion.timeOfDay.split(' - ')[0]; // "9:00 AM"
-    suggestedDate = getNextDateForDay(suggestion.dayOfWeek, timeToParse);
-  }
-
-
-  if (!post.variations || post.variations.length === 0) {
-    return (
-      <div className="bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-700 rounded-xl shadow-lg p-5 flex flex-col items-center justify-center text-center">
-        <div className="w-12 h-12 flex items-center justify-center bg-red-100 dark:bg-red-900/50 rounded-full text-red-500">
-            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
-        </div>
-        <h3 className="mt-4 font-bold text-red-800 dark:text-red-200">Content Generation Failed</h3>
-        <p className="mt-1 text-sm text-red-600 dark:text-red-300">
-            The AI was unable to generate content for this post. This can be due to overly restrictive content filters or an ambiguous topic. Please try regenerating the campaign with a different input.
-        </p>
-      </div>
-    );
-  }
-
   const activeVariation = post.variations[activeVariationIndex];
-  const hashtagsText = Array.isArray(activeVariation.hashtags) ? activeVariation.hashtags.join(' ') : activeVariation.hashtags;
+  const isVideoScript = activeVariation.variation_name === 'Video Script';
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -308,6 +235,12 @@ const PostCardComponent: React.FC<PostCardProps> = ({ post, postIndex, schedulin
     );
   };
   
+  const combinedHashtags = [
+      ...(post.hashtag_strategy?.core || []),
+      ...(post.hashtag_strategy?.niche || []),
+      ...(post.hashtag_strategy?.trending || [])
+  ].join(' ');
+
   const repurposePrompt = `Repurpose the following social media post into a 5-part Twitter thread, a script for a 30-second TikTok/Reels video, and three questions for a LinkedIn poll.
 
 POST TITLE:
@@ -317,11 +250,11 @@ POST BODY:
 ${activeVariation.post_text}
 
 HASHTAGS:
-${hashtagsText}
+${combinedHashtags}
 `;
 
   const PublishButton: React.FC = () => {
-    if (!isWordPressConfigured || post.platform === 'Twitter' || post.platform === 'Instagram') return null;
+    if (!isWordPressConfigured || post.platform === 'Twitter' || post.platform === 'Instagram' || isVideoScript) return null;
 
     const isDisabled = post.imageIsLoading || !post.imageDataUrl || post.imageUrl === 'error' || post.wordpressStatus === 'publishing';
     
@@ -343,6 +276,7 @@ ${hashtagsText}
   };
 
   const RepurposeButton: React.FC = () => {
+    if (isVideoScript) return null;
     const isCopied = copyStates['repurpose-prompt'] || false;
     return (
       <button onClick={() => handleCopy(repurposePrompt, 'repurpose-prompt')} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors active:scale-95">
@@ -358,28 +292,11 @@ ${hashtagsText}
       <div className="p-5 flex justify-between items-start bg-slate-50 dark:bg-slate-900/50 border-b border-slate-200 dark:border-slate-700">
         <div className="flex items-center gap-3">
           <div className="w-7 h-7 text-slate-600 dark:text-slate-300">
-            {IconComponent ? <IconComponent /> : <span className="font-bold text-lg">?</span>}
+            {IconComponent && <IconComponent />}
           </div>
           <div>
             <h3 className="text-xl font-bold text-slate-800 dark:text-slate-200">{post.platform} Post</h3>
-            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                 <FunnelStageBadge stage={post.funnel_stage} />
-                 {post.isScheduled && post.scheduledDate && (
-                    <button onClick={onNavigateToScheduler} className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full border bg-purple-100 dark:bg-purple-900/50 text-purple-800 dark:text-purple-300 border-purple-200 dark:border-purple-700/50 hover:bg-purple-200 dark:hover:bg-purple-900">
-                       <CalendarIcon className="w-3 h-3"/>
-                       Scheduled: {new Date(post.scheduledDate).toLocaleDateString()}
-                    </button>
-                 )}
-                 {!post.isScheduled && suggestedDate && (
-                    <button
-                        onClick={() => onSchedulePost(post.id, suggestedDate!.getTime())}
-                        className="flex items-center gap-1.5 px-2 py-0.5 text-xs font-semibold rounded-full border bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 border-purple-200 dark:border-purple-700/50 hover:bg-purple-200 dark:hover:bg-purple-900"
-                      >
-                       <SparklesIcon className="w-3 h-3"/>
-                        AI Slot: {suggestedDate.toLocaleDateString('en-US', { weekday: 'short', hour: 'numeric', minute: 'numeric' })}
-                      </button>
-                 )}
-            </div>
+            <FunnelStageBadge stage={post.funnel_stage} />
           </div>
         </div>
         <div className="text-right">
@@ -388,106 +305,56 @@ ${hashtagsText}
         </div>
       </div>
        <div className="p-1.5 bg-slate-100 dark:bg-slate-900/50 flex border-b border-slate-200 dark:border-slate-700">
-          <button onClick={() => setViewMode('content')} className={`w-1/4 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'content' ? 'bg-green-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>Content</button>
-          <button onClick={() => setViewMode('preview')} className={`w-1/4 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'preview' ? 'bg-green-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>Preview</button>
-          <button onClick={() => setViewMode('video')} className={`w-1/4 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'video' ? 'bg-green-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>Video</button>
-          <button onClick={() => setViewMode('seo')} className={`w-1/4 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'seo' ? 'bg-green-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>SEO</button>
+          <button onClick={() => setViewMode('content')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'content' ? 'bg-green-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>Content</button>
+          <button onClick={() => setViewMode('preview')} className={`w-1/2 py-2 text-sm font-semibold rounded-md transition-colors active:scale-95 ${viewMode === 'preview' ? 'bg-green-600 text-white' : 'text-slate-600 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700/50'}`}>Preview</button>
       </div>
 
       <div className="p-5 space-y-4 flex-grow">
-        {viewMode === 'preview' ? (
+        {viewMode === 'preview' && !isVideoScript ? (
           <div className="flex items-center justify-center bg-slate-100 dark:bg-slate-800 p-4 rounded-lg">
             <PlatformPreview post={post} variation={activeVariation} />
           </div>
-        ) : viewMode === 'video' ? (
-             <div className="space-y-4">
-                <h4 className="text-lg font-bold text-center">30-Second Video Clip Script</h4>
-                {post.clipScriptIsLoading && <SkeletonLoader />}
-                {post.clipScript ? (
-                     <div className="text-sm bg-slate-100 dark:bg-slate-900/50 p-4 rounded-md whitespace-pre-wrap font-mono">{post.clipScript}</div>
-                ) : (
-                    <button onClick={() => onGenerateClipScript(postIndex, activeVariationIndex)} disabled={post.clipScriptIsLoading} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors active:scale-95 disabled:opacity-50">
-                        <VideoIcon className="w-4 h-4" />
-                        {post.clipScriptIsLoading ? 'Generating Script...' : 'Generate Video Script'}
-                    </button>
-                )}
-             </div>
-        ) : viewMode === 'seo' ? (
-            <div className="space-y-4">
-                <h4 className="text-lg font-bold text-center flex items-center justify-center gap-2"><SEOMetaIcon className="w-5 h-5" /> SEO & AEO Assets</h4>
-                {post.internal_links_html && (
-                    <div>
-                        <h5 className="font-semibold mb-2">Internal Linking Strategy</h5>
-                        <div className="text-sm bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md prose-sm prose-a:text-cyan-600 dark:prose-a:text-cyan-400" dangerouslySetInnerHTML={{ __html: post.internal_links_html }} />
-                    </div>
-                )}
-                {post.schema_org_jsonld && (
-                    <div>
-                        <div className="flex justify-between items-center mb-2">
-                            <h5 className="font-semibold">Schema.org JSON-LD</h5>
-                            <CopyButton text={post.schema_org_jsonld} id={`schema-${post.id}`} label="Copy Schema" />
-                        </div>
-                        <pre className="text-xs bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md overflow-x-auto">
-                            <code>{post.schema_org_jsonld}</code>
-                        </pre>
-                    </div>
-                )}
-                 {(!post.internal_links_html && !post.schema_org_jsonld) && (
-                    <p className="text-center text-sm text-slate-500 dark:text-slate-400 py-4">No SEO assets were generated for this post.</p>
-                 )}
-            </div>
         ) : (
           <>
             <ImageDisplay post={post} onRegenerate={onRegenerate} />
             <div className="flex bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-1 space-x-1">
-                {post.variations.map((variation, index) => (
-                    <button
-                        key={index}
-                        onClick={() => setActiveVariationIndex(index)}
-                        className={`w-full text-center px-3 py-2 rounded-md transition-colors duration-300 font-semibold text-sm active:scale-95 ${
-                            activeVariationIndex === index ? 'bg-green-600 text-white' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
-                        }`}
-                    >
-                        {variation.variation_name.split(':')[0]}
-                    </button>
-                ))}
+                {post.variations.map((variation, index) => {
+                    const isVideo = variation.variation_name === 'Video Script';
+                    return (
+                        <button
+                            key={index}
+                            onClick={() => setActiveVariationIndex(index)}
+                            className={`w-full text-center px-3 py-2 rounded-md transition-colors duration-300 font-semibold text-sm active:scale-95 flex items-center justify-center gap-1.5 ${
+                                activeVariationIndex === index ? 'bg-green-600 text-white' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
+                            }`}
+                        >
+                            {isVideo && <VideoCameraIcon className="w-4 h-4" />}
+                            <span>{isVideo ? 'Video' : variation.variation_name.split(':')[0]}</span>
+                        </button>
+                    )
+                })}
             </div>
             <div>
               <div className="flex justify-between items-center mb-2">
                 <h4 className="font-semibold text-cyan-700 dark:text-cyan-300">{activeVariation.variation_name}</h4>
                 <div className="flex items-center gap-4">
-                    <CopyButton text={activeVariation.post_title} id={`title-${activeVariationIndex}`} label="Copy Title" />
-                    <CopyButton text={activeVariation.post_text} id={`post-${activeVariationIndex}`} label="Copy Body Text" />
+                    {!isVideoScript && <CopyButton text={activeVariation.post_title} id={`title-${activeVariationIndex}`} label="Copy Title" />}
+                    <CopyButton text={activeVariation.post_text} id={`post-${activeVariationIndex}`} label={isVideoScript ? "Copy Script" : "Copy Body Text"} />
                 </div>
               </div>
-               <EditableTextBlock
-                    text={activeVariation.post_title}
-                    isLoading={post.rewritingPart === 'post_title'}
-                    onRewrite={(instruction) => onRewrite(activeVariationIndex, 'post_title', instruction)}
-                    className="text-slate-800 dark:text-slate-200 font-bold bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-base"
-                />
-                <EditableTextBlock
-                    text={activeVariation.post_text}
-                    isLoading={post.rewritingPart === 'post_text'}
-                    onRewrite={(instruction) => onRewrite(activeVariationIndex, 'post_text', instruction)}
-                    className="text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap mt-2"
-                />
-                 <EditableTextBlock
-                    text={activeVariation.call_to_action}
-                    isLoading={post.rewritingPart === 'call_to_action'}
-                    onRewrite={(instruction) => onRewrite(activeVariationIndex, 'call_to_action', instruction)}
-                    className="text-slate-600 dark:text-slate-400 mt-2 text-xs italic"
-                />
-              {hashtagsText && (
-                <div className="mt-3">
-                    <div className="flex justify-between items-center mb-1">
-                        <h5 className="text-xs font-semibold text-slate-500 dark:text-slate-400">Suggested Hashtags</h5>
-                        <CopyButton text={hashtagsText} id={`hashtags-${activeVariationIndex}`} label="Copy Hashtags" />
-                    </div>
-                    <p className="text-cyan-600 dark:text-cyan-400 bg-slate-100 dark:bg-slate-900/50 p-2 rounded-md font-mono text-xs">
-                        {hashtagsText}
-                    </p>
-                </div>
+              {isVideoScript ? (
+                <VideoScriptDisplay script={activeVariation.post_text} />
+              ) : (
+                <>
+                  <h5 className="text-slate-800 dark:text-slate-200 font-bold bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-base">{activeVariation.post_title}</h5>
+                  <p className="text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap mt-2">{activeVariation.post_text}</p>
+                  <p className="text-slate-600 dark:text-slate-400 mt-2 text-xs italic">{activeVariation.call_to_action}</p>
+                  <HashtagStrategyDisplay 
+                    strategy={post.hashtag_strategy}
+                    onCopy={handleCopy}
+                    copyState={copyStates['hashtags-all'] || false}
+                  />
+                </>
               )}
             </div>
           </>
@@ -499,36 +366,26 @@ ${hashtagsText}
             <PublishButton />
             <RepurposeButton />
           </div>
-          <div className="grid grid-cols-2 gap-2">
-             <button onClick={() => onGenerateMore(activeVariationIndex)} className="w-full flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors py-2 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95">
-                <SparklesIcon className="w-4 h-4" />
-                <span>Generate More</span>
-             </button>
-             <button onClick={() => setShowDetails(s => !s)} className="w-full flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors py-2 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95">
-                <InfoIcon className="w-4 h-4" />
-                <span>{showDetails ? 'Hide' : 'Show'} Analysis</span>
-                <svg className={`w-4 h-4 transition-transform ${showDetails ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
-            </button>
-          </div>
+          <button onClick={() => setShowDetails(s => !s)} className="w-full flex items-center justify-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-white transition-colors py-2 bg-slate-100 dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-200 dark:hover:bg-slate-700 active:scale-95">
+            <InfoIcon className="w-4 h-4" />
+            <span>{showDetails ? 'Hide' : 'Show'} Full Analysis</span>
+            <svg className={`w-4 h-4 transition-transform ${showDetails ? 'rotate-180' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+        </button>
         <div className={`transition-all duration-500 ease-in-out overflow-hidden ${showDetails ? 'max-h-[30rem] opacity-100' : 'max-h-0 opacity-0'}`}>
             <div className="mt-4 space-y-4 pt-4 border-t border-slate-200 dark:border-slate-700/50">
-                <div>
-                    <h4 className="font-semibold text-cyan-700 dark:text-cyan-300 mb-2 flex items-center gap-2"><SparklesIcon className="w-4 h-4" /> Primary Viral Trigger</h4>
-                    <p className="text-slate-700 dark:text-slate-300 text-sm bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md font-medium">{activeVariation.viral_trigger || 'Not specified'}</p>
-                </div>
+                {!isVideoScript && (
+                    <div>
+                        <h4 className="font-semibold text-cyan-700 dark:text-cyan-300 mb-2 flex items-center gap-2"><SparklesIcon className="w-4 h-4" /> Primary Viral Trigger</h4>
+                        <p className="text-slate-700 dark:text-slate-300 text-sm bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md font-medium">{activeVariation.viral_trigger || 'Not specified'}</p>
+                    </div>
+                )}
                 <div>
                     <h4 className="font-semibold text-cyan-700 dark:text-cyan-300 mb-2">A/B Test Rationale</h4>
                     <p className="text-slate-600 dark:text-slate-400 text-xs italic bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md">{post.optimization_notes}</p>
                 </div>
                 <div>
                     <h4 className="font-semibold text-cyan-700 dark:text-cyan-300 mb-2">Original Image Prompt</h4>
-                    <EditableTextBlock
-                        text={post.image_prompt}
-                        isLoading={post.rewritingPart === 'image_prompt'}
-                        onRewrite={(instruction) => onRewrite(activeVariationIndex, 'image_prompt', instruction)}
-                        className="text-slate-600 dark:text-slate-400 text-xs italic bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md"
-                        isMono
-                    />
+                    <p className="text-slate-600 dark:text-slate-400 text-xs italic bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md font-mono">{post.image_prompt}</p>
                 </div>
             </div>
         </div>
@@ -536,5 +393,3 @@ ${hashtagsText}
     </div>
   );
 };
-
-export const PostCard = memo(PostCardComponent);

@@ -1,22 +1,15 @@
-
 import React, { useState } from 'react';
 import { Tone, Platform, CampaignGoal, InputMode, type InputFormData } from '../types';
 import { PLATFORMS, TONES, CAMPAIGN_GOALS } from '../constants';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { TrendingUpIcon } from './icons/TrendingUpIcon';
-import { LayersIcon } from './icons/LayersIcon';
+import { LocationMarkerIcon } from './icons/LocationMarkerIcon';
+
 
 interface InputFormProps {
   onGenerate: (formData: InputFormData) => void;
   isLoading: boolean;
 }
-
-const LocationIcon: React.FC<{ className?: string }> = ({ className }) => (
-    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
-        <circle cx="12" cy="10" r="3"></circle>
-    </svg>
-);
 
 export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) => {
   const [inputMode, setInputMode] = useState<InputMode>(InputMode.Topic);
@@ -27,9 +20,8 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   const [tone, setTone] = useState<Tone>(Tone.Professional);
   const [campaignGoal, setCampaignGoal] = useState<CampaignGoal>(CampaignGoal.BrandAwareness);
   const [trendBoost, setTrendBoost] = useState<boolean>(true);
-  const [syndicate, setSyndicate] = useState<boolean>(true);
-  const [userLocation, setUserLocation] = useState<{ latitude: number; longitude: number; } | null>(null);
-  const [locationError, setLocationError] = useState<string | null>(null);
+  const [location, setLocation] = useState<string>('');
+  const [isLocating, setIsLocating] = useState<boolean>(false);
 
   const handlePlatformToggle = (platformName: Platform) => {
     setSelectedPlatforms(prev =>
@@ -40,46 +32,31 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
   };
 
   const handleGetLocation = () => {
-    setLocationError(null);
-    setUserLocation(null);
     if (navigator.geolocation) {
+        setIsLocating(true);
         navigator.geolocation.getCurrentPosition(
             (position) => {
-                setUserLocation({
-                    latitude: position.coords.latitude,
-                    longitude: position.coords.longitude,
-                });
+                const { latitude, longitude } = position.coords;
+                setLocation(`${latitude}, ${longitude}`);
+                setIsLocating(false);
             },
             (error) => {
-                setLocationError(`Error: ${error.message}`);
-            },
-            { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
+                console.error("Geolocation error:", error);
+                alert(`Error getting location: ${error.message}. Please ensure you have granted location permissions.`);
+                setIsLocating(false);
+            }
         );
     } else {
-        setLocationError("Geolocation is not supported by this browser.");
+      alert("Geolocation is not supported by your browser.");
     }
   };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onGenerate({ 
-        inputMode, 
-        topic, 
-        sourceUrl, 
-        selectedPlatforms, 
-        tone, 
-        campaignGoal, 
-        postCount, 
-        trendBoost, 
-        syndicate,
-        userLocation: inputMode === InputMode.GeoTopic ? userLocation : undefined
-    });
+    onGenerate({ inputMode, topic, sourceUrl, selectedPlatforms, tone, campaignGoal, postCount, trendBoost, location });
   };
   
-  const isGenerateDisabled = isLoading || selectedPlatforms.length === 0 || 
-    (inputMode === InputMode.Topic && !topic.trim()) || 
-    (inputMode === InputMode.URLSitemap && !sourceUrl.trim()) ||
-    (inputMode === InputMode.GeoTopic && (!topic.trim() || !userLocation));
+  const isGenerateDisabled = isLoading || selectedPlatforms.length === 0 || (inputMode === InputMode.Topic && !topic.trim()) || (inputMode === InputMode.URLSitemap && !sourceUrl.trim());
 
   return (
     <form onSubmit={handleSubmit} className="p-6 sm:p-10 bg-white dark:bg-slate-800/40 rounded-2xl border border-slate-200 dark:border-slate-700/50 space-y-6 sm:space-y-8 mt-12 shadow-2xl shadow-slate-200/80 dark:shadow-slate-950/50">
@@ -88,24 +65,21 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
         <label className="block text-base font-bold mb-3 text-slate-800 dark:text-slate-200">
           1. Content Source
         </label>
-        <div className="grid grid-cols-3 bg-slate-100 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-lg p-1 space-x-1 mb-4">
+        <div className="flex bg-slate-100 dark:bg-slate-900/50 border border-slate-300 dark:border-slate-700 rounded-lg p-1 space-x-1 mb-4">
             <button type="button" onClick={() => setInputMode(InputMode.Topic)} className={`w-full text-center px-3 py-2 rounded-md transition-all duration-300 font-semibold text-sm active:scale-95 ${inputMode === InputMode.Topic ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
-                Topic
+                Topic / Keyword
             </button>
             <button type="button" onClick={() => setInputMode(InputMode.URLSitemap)} className={`w-full text-center px-3 py-2 rounded-md transition-all duration-300 font-semibold text-sm active:scale-95 ${inputMode === InputMode.URLSitemap ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
-                URL/Sitemap
-            </button>
-            <button type="button" onClick={() => setInputMode(InputMode.GeoTopic)} className={`w-full text-center px-3 py-2 rounded-md transition-all duration-300 font-semibold text-sm active:scale-95 ${inputMode === InputMode.GeoTopic ? 'bg-cyan-600 text-white shadow-sm' : 'text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'}`}>
-                Geo-Topic
+                URL / Sitemap
             </button>
         </div>
-        {inputMode === InputMode.Topic || inputMode === InputMode.GeoTopic ? (
+        {inputMode === InputMode.Topic ? (
              <input
                 id="topic"
                 type="text"
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
-                placeholder={inputMode === InputMode.GeoTopic ? "e.g., best coffee shops" : "e.g., The future of renewable energy"}
+                placeholder="e.g., The future of renewable energy"
                 className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-4 py-3 text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-offset-2 focus:ring-offset-slate-50 dark:focus:ring-offset-slate-900 focus:ring-cyan-500 focus:border-cyan-500 transition-all duration-300"
                 required
               />
@@ -119,38 +93,20 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
                 required
              />
         )}
-        {inputMode === InputMode.GeoTopic && (
-            <div className="mt-3">
-                <button type="button" onClick={handleGetLocation} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors active:scale-95">
-                    <LocationIcon className="w-4 h-4"/>
-                    Use My Current Location
-                </button>
-                {userLocation && (
-                    <p className="mt-2 text-xs text-center text-green-600 dark:text-green-400">
-                        Location acquired: {userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}
-                    </p>
-                )}
-                {locationError && (
-                     <p className="mt-2 text-xs text-center text-red-600 dark:text-red-400">
-                        {locationError}
-                    </p>
-                )}
-            </div>
-        )}
       </div>
 
-       {/* Power-ups */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+       {/* Trend Boost & Location */}
+       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         <div className="bg-slate-100 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
             <label htmlFor="trendBoost" className="flex items-center justify-between cursor-pointer">
                 <div className="flex items-center gap-3">
                     <TrendingUpIcon className="w-6 h-6 text-orange-500 dark:text-orange-400" />
                     <div>
                         <span className="font-bold text-base text-slate-800 dark:text-slate-200">Trend Boost</span>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Prioritize emerging trends.</p>
+                        <p className="text-xs text-slate-500 dark:text-slate-400">Prioritize emerging trends for a first-mover advantage.</p>
                     </div>
                 </div>
-                <input
+                 <input
                     type="checkbox"
                     id="trendBoost"
                     checked={trendBoost}
@@ -160,22 +116,28 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
             </label>
         </div>
         <div className="bg-slate-100 dark:bg-slate-900/50 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-            <label htmlFor="syndicate" className="flex items-center justify-between cursor-pointer">
-                <div className="flex items-center gap-3">
-                    <LayersIcon className="w-6 h-6 text-purple-500 dark:text-purple-400" />
-                    <div>
-                        <span className="font-bold text-base text-slate-800 dark:text-slate-200">Syndicate Content</span>
-                        <p className="text-xs text-slate-500 dark:text-slate-400">Add Threads, Bluesky & Shorts.</p>
-                    </div>
-                </div>
-                <input
-                    type="checkbox"
-                    id="syndicate"
-                    checked={syndicate}
-                    onChange={e => setSyndicate(e.target.checked)}
-                    className="h-5 w-5 rounded border-slate-300 text-green-600 focus:ring-green-500"
-                />
-            </label>
+          <label htmlFor="location" className="block font-bold text-base text-slate-800 dark:text-slate-200 mb-2">
+            Target Location (Optional)
+          </label>
+           <div className="flex gap-2">
+            <input
+              id="location"
+              type="text"
+              value={location}
+              onChange={(e) => setLocation(e.target.value)}
+              placeholder="e.g., San Francisco, CA"
+              className="w-full bg-white dark:bg-slate-800 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-sm text-slate-900 dark:text-slate-100 placeholder-slate-400 dark:placeholder-slate-500 focus:ring-2 focus:ring-cyan-500 transition-all"
+            />
+            <button 
+              type="button" 
+              onClick={handleGetLocation} 
+              disabled={isLocating}
+              className="p-2 bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 rounded-lg hover:bg-slate-300 dark:hover:bg-slate-600 transition-colors disabled:opacity-50"
+              aria-label="Use my current location"
+            >
+              {isLocating ? <div className="w-5 h-5 border-2 border-slate-400 border-t-slate-600 dark:border-t-white rounded-full animate-spin"></div> : <LocationMarkerIcon className="w-5 h-5" />}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -186,7 +148,7 @@ export const InputForm: React.FC<InputFormProps> = ({ onGenerate, isLoading }) =
           2. Target Platforms
         </label>
         <div className="grid grid-cols-3 sm:grid-cols-5 gap-2 sm:gap-4">
-          {PLATFORMS.filter(p => ![Platform.Threads, Platform.Bluesky, Platform.YouTubeShorts].includes(p.name)).map(({ name, icon: Icon }) => (
+          {PLATFORMS.map(({ name, icon: Icon }) => (
             <button
               key={name}
               type="button"

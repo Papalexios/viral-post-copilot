@@ -6,9 +6,6 @@ import { InstagramIcon } from './components/icons/InstagramIcon';
 import { PinterestIcon } from './components/icons/PinterestIcon';
 import { LinkedInIcon } from './components/icons/LinkedInIcon';
 import { TwitterIcon } from './components/icons/TwitterIcon';
-import { ThreadsIcon } from './components/icons/ThreadsIcon';
-import { BlueskyIcon } from './components/icons/BlueskyIcon';
-import { YouTubeShortsIcon } from './components/icons/YouTubeShortsIcon';
 
 export const AI_PROVIDERS: { name: AiProvider; defaultModel: string; apiKeyUrl: string; }[] = [
     { name: AiProvider.Gemini, defaultModel: 'gemini-2.5-pro', apiKeyUrl: 'https://aistudio.google.com/app/apikey' },
@@ -23,9 +20,6 @@ export const PLATFORMS: { name: Platform; icon: React.FC<{ className?: string }>
   { name: Platform.Pinterest, icon: PinterestIcon },
   { name: Platform.LinkedIn, icon: LinkedInIcon },
   { name: Platform.Twitter, icon: TwitterIcon },
-  { name: Platform.Threads, icon: ThreadsIcon },
-  { name: Platform.Bluesky, icon: BlueskyIcon },
-  { name: Platform.YouTubeShorts, icon: YouTubeShortsIcon },
 ];
 
 export const TONES: Tone[] = [
