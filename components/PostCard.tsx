@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import type { GeneratedPost, PostVariation, Platform, HashtagStrategy } from '../types';
 import { PLATFORMS } from '../constants';
@@ -9,19 +10,28 @@ import { SkeletonLoader } from './SkeletonLoader';
 import { SparklesIcon } from './icons/SparklesIcon';
 import { DownloadIcon } from './icons/DownloadIcon';
 import { VideoCameraIcon } from './icons/VideoCameraIcon';
+import { CheckCircleIcon } from './icons/CheckCircleIcon';
 
 const RedoIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <path d="M23 4v6h-6"></path>
     <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
   </svg>
 );
 
 const LayersIcon: React.FC<{ className?: string }> = ({ className }) => (
-  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
     <polygon points="12 2 2 7 12 12 22 7 12 2"></polygon>
     <polyline points="2 17 12 22 22 17"></polyline>
     <polyline points="2 12 12 17 22 12"></polyline>
+  </svg>
+);
+
+const VolumeIcon: React.FC<{ className?: string }> = ({ className }) => (
+  <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+    <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+    <path d="M15.54 8.46a5 5 0 0 1 0 7.07"></path>
+    <path d="M19.07 4.93a10 10 0 0 1 0 14.14"></path>
   </svg>
 );
 
@@ -29,6 +39,8 @@ interface PostCardProps {
   post: GeneratedPost;
   onRegenerate: () => void;
   onPublish: (variationIndex: number) => void;
+  onGenerateVideo: () => void;
+  onGenerateAudio: (text: string) => void;
   isWordPressConfigured: boolean;
 }
 
@@ -79,6 +91,26 @@ const ImageDisplay: React.FC<{ post: GeneratedPost; onRegenerate: () => void; }>
   )
 };
 
+const PollPreview: React.FC<{ question: string; options?: string[] }> = ({ question, options }) => (
+    <div className="bg-white dark:bg-slate-950 p-4 rounded-xl border border-slate-200 dark:border-slate-700 w-full text-left font-sans">
+        <div className="flex items-center gap-3 mb-4">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-green-400 flex-shrink-0"></div>
+            <div>
+                <p className="font-bold text-slate-800 dark:text-slate-200">Your Brand</p>
+                <p className="text-slate-500 text-xs">Now</p>
+            </div>
+        </div>
+        <p className="font-semibold text-slate-800 dark:text-slate-200 mb-4">{question}</p>
+        <div className="space-y-2">
+            {options?.map((opt, i) => (
+                <div key={i} className="border border-slate-300 dark:border-slate-700 rounded-md p-2 text-center text-sm text-slate-600 dark:text-slate-300 bg-slate-50 dark:bg-slate-800/50">
+                    {opt}
+                </div>
+            ))}
+        </div>
+    </div>
+);
+
 const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation }> = ({ post, variation }) => {
     const BrandIcon = () => <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-cyan-500 to-green-400 flex-shrink-0"></div>;
     const combinedHashtags = [
@@ -86,6 +118,11 @@ const PlatformPreview: React.FC<{ post: GeneratedPost, variation: PostVariation 
       ...(post.hashtag_strategy?.niche || []),
       ...(post.hashtag_strategy?.trending || [])
     ].join(' ');
+
+    const isPoll = variation.variation_name === 'Interactive Poll' || (variation.poll_options && variation.poll_options.length > 0);
+    if (isPoll) {
+        return <PollPreview question={variation.post_text} options={variation.poll_options} />
+    }
 
     switch(post.platform) {
         case 'Twitter':
@@ -155,17 +192,48 @@ const FunnelStageBadge: React.FC<{ stage?: string }> = ({ stage }) => {
     );
 };
 
-const VideoScriptDisplay: React.FC<{ script: string }> = ({ script }) => (
-    <div className="bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap font-mono">
-        {script.split('\n').map((line, index) => {
-            if (line.toUpperCase().startsWith('SCENE:')) {
-                return <p key={index} className="text-purple-600 dark:text-purple-400 font-bold mt-2">{line}</p>;
-            }
-            if (line.toUpperCase().startsWith('VO:')) {
-                return <p key={index} className="text-slate-700 dark:text-slate-300">{line}</p>;
-            }
-            return <p key={index}>{line}</p>;
-        })}
+const VideoScriptDisplay: React.FC<{ script: string, post: GeneratedPost, onGenerateVideo: () => void }> = ({ script, post, onGenerateVideo }) => (
+    <div className="space-y-4">
+        {post.videoStatus === 'generating' && (
+             <div className="p-4 bg-slate-100 dark:bg-slate-900 rounded-lg flex items-center justify-center gap-3 border border-slate-200 dark:border-slate-700">
+                <div className="w-5 h-5 border-2 border-slate-400 border-t-purple-500 rounded-full animate-spin"></div>
+                <span className="text-sm font-semibold text-slate-600 dark:text-slate-300">Generating AI Video Preview (Veo)...</span>
+            </div>
+        )}
+        
+        {post.videoUrl && (
+             <div className="relative w-full rounded-lg overflow-hidden bg-black border border-slate-200 dark:border-slate-700 aspect-[9/16] max-h-96 mx-auto">
+                <video src={post.videoUrl} controls className="w-full h-full object-contain" />
+            </div>
+        )}
+
+        {post.videoError && (
+            <div className="p-3 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 text-sm rounded-lg border border-red-200 dark:border-red-800">
+                Error: {post.videoError}
+            </div>
+        )}
+        
+        {!post.videoUrl && post.videoStatus !== 'generating' && (
+             <button
+                onClick={onGenerateVideo}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold rounded-lg transition-all active:scale-95 shadow-md"
+            >
+                <VideoCameraIcon className="w-5 h-5" />
+                <span>Generate Video Preview (Veo)</span>
+            </button>
+        )}
+
+        <div className="bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap font-mono">
+            {script.split('\n').map((line, index) => {
+                if (line.toUpperCase().startsWith('SCENE:')) {
+                    return <p key={index} className="text-purple-600 dark:text-purple-400 font-bold mt-2">{line}</p>;
+                }
+                if (line.toUpperCase().startsWith('VO:')) {
+                    return <p key={index} className="text-slate-700 dark:text-slate-300">{line}</p>;
+                }
+                return <p key={index}>{line}</p>;
+            })}
+        </div>
     </div>
 );
 
@@ -207,7 +275,7 @@ const HashtagStrategyDisplay: React.FC<{ strategy?: HashtagStrategy, onCopy: (te
 };
 
 
-export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublish, isWordPressConfigured }) => {
+export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublish, onGenerateVideo, onGenerateAudio, isWordPressConfigured }) => {
   const [copyStates, setCopyStates] = useState<{ [key: string]: boolean }>({});
   const [showDetails, setShowDetails] = useState(false);
   const [activeVariationIndex, setActiveVariationIndex] = useState(0);
@@ -217,6 +285,8 @@ export const PostCard: React.FC<PostCardProps> = ({ post, onRegenerate, onPublis
   const IconComponent = platformInfo?.icon;
   const activeVariation = post.variations[activeVariationIndex];
   const isVideoScript = activeVariation.variation_name === 'Video Script';
+  const isPoll = activeVariation.variation_name === 'Interactive Poll' || (activeVariation.poll_options && activeVariation.poll_options.length > 0);
+
 
   const handleCopy = (text: string, id: string) => {
     navigator.clipboard.writeText(text);
@@ -254,7 +324,7 @@ ${combinedHashtags}
 `;
 
   const PublishButton: React.FC = () => {
-    if (!isWordPressConfigured || post.platform === 'Twitter' || post.platform === 'Instagram' || isVideoScript) return null;
+    if (!isWordPressConfigured || post.platform === 'Twitter' || post.platform === 'Instagram' || isVideoScript || isPoll) return null;
 
     const isDisabled = post.imageIsLoading || !post.imageDataUrl || post.imageUrl === 'error' || post.wordpressStatus === 'publishing';
     
@@ -276,7 +346,7 @@ ${combinedHashtags}
   };
 
   const RepurposeButton: React.FC = () => {
-    if (isVideoScript) return null;
+    if (isVideoScript || isPoll) return null;
     const isCopied = copyStates['repurpose-prompt'] || false;
     return (
       <button onClick={() => handleCopy(repurposePrompt, 'repurpose-prompt')} className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg transition-colors active:scale-95">
@@ -310,16 +380,17 @@ ${combinedHashtags}
       </div>
 
       <div className="p-5 space-y-4 flex-grow">
-        {viewMode === 'preview' && !isVideoScript ? (
+        {viewMode === 'preview' ? (
           <div className="flex items-center justify-center bg-slate-100 dark:bg-slate-800 p-4 rounded-lg">
             <PlatformPreview post={post} variation={activeVariation} />
           </div>
         ) : (
           <>
-            <ImageDisplay post={post} onRegenerate={onRegenerate} />
+            {!isPoll && <ImageDisplay post={post} onRegenerate={onRegenerate} />}
             <div className="flex bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-700 rounded-lg p-1 space-x-1">
                 {post.variations.map((variation, index) => {
-                    const isVideo = variation.variation_name === 'Video Script';
+                    const isVid = variation.variation_name === 'Video Script';
+                    const isPol = variation.variation_name === 'Interactive Poll' || (variation.poll_options && variation.poll_options.length > 0);
                     return (
                         <button
                             key={index}
@@ -328,8 +399,9 @@ ${combinedHashtags}
                                 activeVariationIndex === index ? 'bg-green-600 text-white' : 'text-slate-700 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700'
                             }`}
                         >
-                            {isVideo && <VideoCameraIcon className="w-4 h-4" />}
-                            <span>{isVideo ? 'Video' : variation.variation_name.split(':')[0]}</span>
+                            {isVid && <VideoCameraIcon className="w-4 h-4" />}
+                            {isPol && <CheckCircleIcon className="w-4 h-4" />}
+                            <span>{isVid ? 'Video' : isPol ? 'Poll' : variation.variation_name.split(':')[0]}</span>
                         </button>
                     )
                 })}
@@ -338,16 +410,43 @@ ${combinedHashtags}
               <div className="flex justify-between items-center mb-2">
                 <h4 className="font-semibold text-cyan-700 dark:text-cyan-300">{activeVariation.variation_name}</h4>
                 <div className="flex items-center gap-4">
-                    {!isVideoScript && <CopyButton text={activeVariation.post_title} id={`title-${activeVariationIndex}`} label="Copy Title" />}
-                    <CopyButton text={activeVariation.post_text} id={`post-${activeVariationIndex}`} label={isVideoScript ? "Copy Script" : "Copy Body Text"} />
+                    {!isVideoScript && !isPoll && <CopyButton text={activeVariation.post_title} id={`title-${activeVariationIndex}`} label="Copy Title" />}
+                    <CopyButton text={activeVariation.post_text} id={`post-${activeVariationIndex}`} label={isVideoScript ? "Copy Script" : isPoll ? "Copy Question" : "Copy Body Text"} />
                 </div>
               </div>
               {isVideoScript ? (
-                <VideoScriptDisplay script={activeVariation.post_text} />
+                <VideoScriptDisplay script={activeVariation.post_text} post={post} onGenerateVideo={onGenerateVideo} />
+              ) : isPoll ? (
+                 <div className="space-y-2">
+                    <p className="text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap">{activeVariation.post_text}</p>
+                    <div className="bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md space-y-2">
+                        {activeVariation.poll_options?.map((option, i) => (
+                            <div key={i} className="text-xs text-slate-600 dark:text-slate-400 font-mono">Option {i+1}: {option}</div>
+                        ))}
+                    </div>
+                </div>
               ) : (
                 <>
                   <h5 className="text-slate-800 dark:text-slate-200 font-bold bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-base">{activeVariation.post_title}</h5>
                   <p className="text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-900/50 p-3 rounded-md text-sm whitespace-pre-wrap mt-2">{activeVariation.post_text}</p>
+                  
+                  {/* Audio Generation Controls */}
+                  <div className="mt-2 flex items-center gap-2">
+                      {post.audioStatus === 'generating' ? (
+                         <span className="text-xs text-purple-600 dark:text-purple-400 flex items-center gap-1"><div className="w-3 h-3 border-2 border-purple-500 rounded-full animate-spin border-t-transparent"></div> Generating Audio...</span>
+                      ) : post.audioUrl ? (
+                         <audio controls src={post.audioUrl} className="h-8 w-full" />
+                      ) : (
+                         <button 
+                            onClick={() => onGenerateAudio(activeVariation.post_text)}
+                            className="text-xs flex items-center gap-1 text-purple-600 dark:text-purple-400 hover:text-purple-700 dark:hover:text-purple-300 font-semibold"
+                         >
+                            <VolumeIcon className="w-4 h-4" /> Generate Audio Narration (TTS)
+                         </button>
+                      )}
+                      {post.audioError && <span className="text-xs text-red-500">{post.audioError}</span>}
+                  </div>
+
                   <p className="text-slate-600 dark:text-slate-400 mt-2 text-xs italic">{activeVariation.call_to_action}</p>
                   <HashtagStrategyDisplay 
                     strategy={post.hashtag_strategy}

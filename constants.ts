@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Platform, Tone, CampaignGoal, AiProvider } from './types';
 import { FacebookIcon } from './components/icons/FacebookIcon';

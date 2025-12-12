@@ -1,5 +1,28 @@
-import { GoogleGenAI, Type } from "@google/genai";
+
+import { GoogleGenAI, Type, Modality } from "@google/genai";
 import { AiProvider, type InputFormData, type TopicAnalysis, type GeneratedPost, type GroundingMetadata, type AiConfig, InputMode, type ViralPost, type StreamChunk } from '../types';
+
+// #region Utility Functions
+const safeJsonParse = <T>(jsonString: string): T => {
+  let cleanString = jsonString.trim();
+  // Handles ```json ... ``` and ``` ... ```
+  const markdownRegex = /^```(?:json)?\s*([\s\S]*?)\s*```$/;
+  const match = cleanString.match(markdownRegex);
+
+  if (match && match[1]) {
+    cleanString = match[1];
+  }
+
+  try {
+    return JSON.parse(cleanString);
+  } catch (error) {
+    console.error("Failed to parse JSON string:", jsonString);
+    console.error("Cleaned JSON string attempt:", cleanString);
+    // Re-throw a more informative error for the UI to catch
+    throw new Error("Invalid or malformed JSON response from the AI model. Please try again.");
+  }
+};
+// #endregion
 
 // #region Schemas
 
@@ -24,6 +47,7 @@ const postsOnlySchema = {
                     call_to_action: { type: Type.STRING },
                     share_snippet: { type: Type.STRING },
                     viral_trigger: { type: Type.STRING },
+                    poll_options: { type: Type.ARRAY, items: { type: Type.STRING }, description: 'For poll variations only' },
                 },
             }
           },
@@ -76,12 +100,40 @@ const viralTrendResponseSchema = {
 // #region Prompt Engineering
 
 const generateAnalysisPrompt = (formData: InputFormData): string => {
-  const { inputMode, topic, sourceUrl, selectedPlatforms, campaignGoal, trendBoost, location } = formData;
+  const { inputMode, topic, sourceUrl, selectedPlatforms, campaignGoal, trendBoost, location, competitorUrl, audiencePersona } = formData;
   const sourceContent = inputMode === InputMode.URLSitemap && sourceUrl ? sourceUrl : topic;
+  
   const trendInstruction = trendBoost 
     ? "You MUST prioritize identifying and incorporating the latest emerging trends, rising queries, and viral formats related to the source material."
     : "Focus on evergreen, high-value strategic insights.";
+  
   const locationInstruction = location ? `- Target Location: "${location}" (Use this to inform local trends, language, and examples.)` : '';
+  
+  const competitorInstruction = competitorUrl ? `
+  3.  **COMPETITOR ANALYSIS (CRITICAL)**: Analyze the competitor at ${competitorUrl}. Perform a SWOT analysis (Strengths, Weaknesses, Opportunities, Threats) on their content strategy. Identify their core pillars, tone, and exploitable content gaps. This analysis MUST directly inform the 'content_gaps' and overall 'campaign_strategy' output.
+  ` : '';
+
+  const personaInstruction = audiencePersona ? `
+  4.  **PERSONA SYNTHESIS (CRITICAL)**: Based on the description "${audiencePersona}", synthesize a rich, detailed user persona. This persona should feel like a real person and guide all 'audience_resonance' and content tone recommendations.
+  ` : '';
+
+  const competitorSchema = competitorUrl ? `
+  "competitor_analysis": {
+    "summary": "A concise summary of the competitor's content strategy and our strategic position against them.",
+    "strengths": ["List of 2-3 key content strengths they have."],
+    "weaknesses": ["List of 2-3 exploitable weaknesses in their content."],
+    "opportunities": ["List of 2-3 content opportunities for us based on their strategy."],
+    "threats": ["List of 1-2 potential threats they pose."]
+  },` : '';
+
+  const personaSchema = audiencePersona ? `
+  "audience_persona_details": {
+    "name": "A plausible name for the persona.",
+    "demographics": "e.g., Age, location, occupation.",
+    "goals": ["A list of 2-3 primary goals related to the niche."],
+    "pain_points": ["A list of 2-3 major pain points or frustrations."],
+    "summary": "A brief narrative summarizing the persona's mindset."
+  },` : '';
 
   return `
 SYSTEM DIRECTIVE: You are a world-class market research, SEO, and content strategy AI. Your task is to perform a deep analysis of the provided source material and generate a comprehensive strategic plan.
@@ -92,35 +144,39 @@ INPUT PARAMETERS:
 - Core Campaign Goal: ${campaignGoal}
 - Trend Priority: ${trendInstruction}
 ${locationInstruction}
+${competitorUrl ? `- Competitor URL: "${competitorUrl}"` : ''}
+${audiencePersona ? `- Audience Description: "${audiencePersona}"` : ''}
 
 CRITICAL INSTRUCTIONS:
-1.  **GROUNDING MANDATE (HIGHEST PRIORITY)**: You MUST use the integrated Google Search and Google Maps tools to conduct thorough, real-time research on the Source Material. Gather the latest information, statistics, audience sentiment, and emerging trends. If a location is provided, Maps data is critical.
-2.  **JSON OUTPUT MANDATE**: Your ENTIRE output must be ONLY a single, valid JSON object. It must start with \`{\` and end with \`}\`. Do NOT include any other text, commentary, or markdown like \`\`\`json. The JSON object must contain a single root key: "topic_analysis".
+1.  **GROUNDING MANDATE (HIGHEST PRIORITY)**: You MUST use the integrated Google Search and Google Maps tools to conduct thorough, real-time research on the Source Material and any provided competitor URLs. Gather the latest information, statistics, audience sentiment, and emerging trends.
+2.  **PREDICTIVE PERFORMANCE**: You must simulate a "Predictive Performance Engine". Estimate engagement rates, virality probability, and sentiment based on current data.
+3.  **JSON OUTPUT MANDATE**: Your ENTIRE output must be ONLY a single, valid JSON object. It must start with \`{\` and end with \`}\`. Do NOT include any other text, commentary, or markdown like \`\`\`json. The JSON object must contain a single root key: "topic_analysis".
+${competitorInstruction}
+${personaInstruction}
 
 JSON SCHEMA FOR "topic_analysis":
 {
-  "campaign_strategy": "A concise, high-level strategy for the campaign, based on your research.",
+  ${competitorSchema}
+  ${personaSchema}
+  "campaign_strategy": "A concise, high-level strategy for the campaign, directly informed by your research, competitor analysis, and persona synthesis.",
   "trend_alignment": "Specific, verifiable micro-trends or rising queries you identified and how the campaign can leverage them.",
-  "audience_resonance": "The core psychological triggers or pain points of the target audience that the content should address.",
-  "content_gaps": "An untapped angle or opportunity in the current content landscape for this topic.",
+  "audience_resonance": "The core psychological triggers or pain points of the target audience that the content should address, tailored to the synthesized persona if provided.",
+  "content_gaps": "An untapped angle or opportunity in the current content landscape, derived from your grounding research and competitor analysis.",
   "viral_hooks": ["An array of 3-5 specific, compelling hooks or ideas for viral content based on your analysis."],
-  "seo_keywords": { 
-      "primary": ["one or two core keywords"], 
-      "secondary": ["3-5 related keywords"], 
-      "lsi": ["5-7 latent semantic indexing keywords or long-tail variations"] 
-  },
-  "answer_engine_strategy": {
-      "suggested_faqs": ["A list of 3-5 questions your content should answer to capture 'People Also Ask' snippets."]
-  },
-  "publishing_cadence": ["An array of 2-3 specific scheduling recommendations, e.g., 'Monday 9 AM (LinkedIn): Post about B2B applications.'"],
-  "hashtag_strategy": {
-      "core": ["3-5 high-volume, broad-reach hashtags for discoverability."],
-      "niche": ["3-5 community-specific hashtags for high-engagement."],
-      "trending": ["1-2 currently trending or event-specific hashtags, if applicable."]
+  "seo_keywords": { "primary": [], "secondary": [], "lsi": [] },
+  "answer_engine_strategy": { "suggested_faqs": [] },
+  "publishing_cadence": [],
+  "hashtag_strategy": { "core": [], "niche": [], "trending": [] },
+  "predictive_metrics": {
+      "estimated_engagement_rate": "e.g., 'High (4.5% - 6.0%)'",
+      "virality_probability": "e.g., 'Moderate (65%) due to trending keyword usage'",
+      "audience_sentiment_forecast": "e.g., 'Positive/Inquisitive'",
+      "predicted_ctr": "e.g., '2.1% based on hook strength'"
   }
 }
 `;
 };
+
 
 const generatePostsPrompt = (formData: InputFormData, analysis: TopicAnalysis): string => {
   const { selectedPlatforms, tone, campaignGoal, postCount } = formData;
@@ -157,9 +213,11 @@ NON-NEGOTIABLE MANDATES:
     *   **Instagram**: 150-300 characters for the main caption. Lead with the most important info. The visual is primary, the caption provides context and a CTA.
     *   **Facebook**: 300-500 characters. More conversational. Can tell a brief story. Use emojis strategically to guide the reader's eye.
 
-4.  **VIDEO SCRIPT MANDATE**: For each post, you MUST generate a third variation with "variation_name": "Video Script". This script must be for a 15-30 second vertical video (Reels/TikTok). Format it clearly with "SCENE:" and "VO:" (voiceover) tags. The script must be fast-paced, visually engaging, and use trending audio concepts where applicable.
+4.  **VIDEO SCRIPT MANDATE**: For each post, you MUST generate a variation with "variation_name": "Video Script". This script must be for a 15-30 second vertical video (Reels/TikTok). Format it clearly with "SCENE:" and "VO:" (voiceover) tags. The script must be fast-paced, visually engaging, and use trending audio concepts where applicable.
 
-5.  **NEUROAESTHETIC™ IMAGE DIRECTION MANDATE**: Generate an 'image_prompt' that directs the image model like a world-class art director. The goal is to create an image so compelling people *want* to save it. It MUST specify:
+5.  **INTERACTIVE CONTENT MANDATE**: For platforms like LinkedIn and Twitter, you MUST generate a variation with "variation_name": "Interactive Poll". This variation must contain a 'post_text' that asks a compelling question and 'poll_options' which is an array of 2-4 short, engaging options.
+
+6.  **NEUROAESTHETIC™ IMAGE DIRECTION MANDATE**: Generate an 'image_prompt' that directs the image model like a world-class art director. The goal is to create an image so compelling people *want* to save it. It MUST specify:
     *   **EMOTIONAL CORE:** State the primary emotion to evoke (e.g., 'Evokes a profound sense of awe and wonder').
     *   **ARTIST/DIRECTOR STYLE:** Reference a specific style (e.g., 'in the hyper-detailed, dramatic style of photographer Gregory Crewdson,' or 'cinematography in the style of Roger Deakins').
     *   **CAMERA & LENS:** (e.g., 'Shot on a Hasselblad X2D 100C with a 90mm f/2.5 lens').
@@ -167,9 +225,9 @@ NON-NEGOTIABLE MANDATES:
     *   **COMPOSITION:** (e.g., 'masterful use of the golden ratio, with strong leading lines guiding the viewer's eye').
     *   **SOTA DETAIL:** (e.g., '8K resolution, photorealistic, hyper-detailed textures, subsurface scattering for realistic skin').
 
-6.  **PSYCHOLOGICAL TRIGGER MANDATE**: For each text variation, identify the primary 'viral_trigger' from: ['Awe', 'Humor', 'Social Currency', 'Curiosity Gap', 'Urgency', 'Storytelling', 'Practical Value'].
+7.  **PSYCHOLOGICAL TRIGGER MANDATE**: For each text variation, identify the primary 'viral_trigger' from: ['Awe', 'Humor', 'Social Currency', 'Curiosity Gap', 'Urgency', 'Storytelling', 'Practical Value'].
 
-7.  **IMPERATIVE CTA MANDATE**: ALWAYS include a compelling 'call_to_action'. ${ctaInstruction}
+8.  **IMPERATIVE CTA MANDATE**: ALWAYS include a compelling 'call_to_action'. ${ctaInstruction}
 
 ---
 INPUT STRATEGY (FROM PHASE 1 ANALYSIS)
@@ -178,7 +236,7 @@ ${JSON.stringify(analysis, null, 2)}
 \`\`\`
 
 EXECUTION INSTRUCTION:
-Based *only* on the INPUT STRATEGY provided, generate ${postCount} social media posts for [${selectedPlatforms.join(', ')}]. Tone: ${tone}. Goal: ${campaignGoal}. Each post must have TWO text variations (A/B test) and ONE video script variation.
+Based *only* on the INPUT STRATEGY provided, generate ${postCount} social media posts for [${selectedPlatforms.join(', ')}]. Tone: ${tone}. Goal: ${campaignGoal}. Each post must have at least TWO text variations (A/B test), ONE video script variation, and where appropriate, ONE interactive poll variation.
 
 Your output MUST be a single, valid JSON object containing only a "posts" array, adhering strictly to the provided API schema.
 `;
@@ -195,34 +253,46 @@ const getGeminiClient = (apiKey?: string) => {
 };
 
 export async function* generateViralPostsStream(formData: InputFormData, aiConfig: AiConfig): AsyncGenerator<StreamChunk> {
+  const sourceContent = formData.inputMode === InputMode.URLSitemap && formData.sourceUrl ? formData.sourceUrl : formData.topic;
+  if (!sourceContent.trim()) {
+    throw new Error("Input Topic or URL cannot be empty. Please provide a source to generate a campaign.");
+  }
+  
   const ai = getGeminiClient(aiConfig.apiKey);
   
-  // Phase 1: Analysis
+  // Phase 1: Analysis - Always use the high-power model for strategy
   const analysisPrompt = generateAnalysisPrompt(formData);
-  // Fix for TypeScript error on line 204. Explicitly type the 'tools' array to allow both googleSearch and googleMaps.
   const tools: ({ googleSearch: {} } | { googleMaps: {} })[] = [{ googleSearch: {} }];
   if (formData.location) {
     tools.push({ googleMaps: {} });
   }
 
   const analysisResponse = await ai.models.generateContent({
-    model: aiConfig.model,
+    model: 'gemini-2.5-pro', // Hardcoded for best strategic output
     contents: analysisPrompt,
     config: { tools },
   });
 
-  const analysisData: TopicAnalysis = JSON.parse(analysisResponse.text).topic_analysis;
+  const analysisJson = safeJsonParse<{ topic_analysis: TopicAnalysis }>(analysisResponse.text);
+  
+  // FIX: Validate that the analysis object and its required properties exist before proceeding.
+  if (!analysisJson || !analysisJson.topic_analysis || !analysisJson.topic_analysis.campaign_strategy) {
+    console.error("AI response for analysis was malformed or incomplete.", analysisResponse.text);
+    throw new Error("The AI failed to generate a valid campaign analysis. The topic might be too ambiguous, restricted, or the source URL could not be accessed.");
+  }
+
+  const analysisData: TopicAnalysis = analysisJson.topic_analysis;
   yield { type: 'analysis', data: analysisData };
 
   if (analysisResponse.candidates?.[0]?.groundingMetadata) {
      yield { type: 'grounding', data: { groundingChunks: analysisResponse.candidates[0].groundingMetadata.groundingChunks } };
   }
  
-  // Phase 2: Post Generation
+  // Phase 2: Post Generation - Use user-selected model
   const postsPrompt = generatePostsPrompt(formData, analysisData);
   
   const postsResponse = await ai.models.generateContent({
-    model: aiConfig.model,
+    model: aiConfig.model, // User-selected model for creative generation
     contents: postsPrompt,
     config: {
         responseMimeType: "application/json",
@@ -230,7 +300,14 @@ export async function* generateViralPostsStream(formData: InputFormData, aiConfi
     },
   });
 
-  const postsData: { posts: GeneratedPost[] } = JSON.parse(postsResponse.text);
+  const postsData = safeJsonParse<{ posts: GeneratedPost[] }>(postsResponse.text);
+  
+  // FIX: Validate that the posts array exists. If not, end the stream gracefully.
+  // This handles cases where the analysis is successful but post generation fails.
+  if (!postsData || !Array.isArray(postsData.posts)) {
+    console.warn("AI response for posts did not contain a valid 'posts' array. Finishing with analysis only.", postsResponse.text);
+    return; // End the generator gracefully.
+  }
 
   for (const post of postsData.posts) {
     yield { type: 'post', data: { ...post, sourceUrl: formData.inputMode === InputMode.URLSitemap ? formData.sourceUrl : undefined } };
@@ -263,6 +340,75 @@ export const generateImageFromPrompt = async (imagePrompt: string, aiConfig: AiC
   return `data:image/jpeg;base64,${base64ImageBytes}`;
 };
 
+export const generateVeoVideo = async (prompt: string, aiConfig: AiConfig): Promise<string> => {
+    if (aiConfig.provider !== AiProvider.Gemini) {
+        throw new Error("Video generation is only supported for Google Gemini.");
+    }
+
+    const ai = getGeminiClient(aiConfig.apiKey);
+    
+    // Using Veo 3.1 Fast for quick previews
+    let operation = await ai.models.generateVideos({
+        model: 'veo-3.1-fast-generate-preview',
+        prompt: prompt,
+        config: {
+            numberOfVideos: 1,
+            resolution: '720p',
+            aspectRatio: '9:16' // Portrait for social media
+        }
+    });
+
+    // Poll for completion
+    while (!operation.done) {
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Poll every 5s
+        operation = await ai.operations.getVideosOperation({ operation: operation });
+    }
+
+    const downloadLink = operation.response?.generatedVideos?.[0]?.video?.uri;
+    if (!downloadLink) throw new Error("Video generation failed to return a download URI.");
+    
+    // We need to fetch the bytes because the URI requires auth
+    const response = await fetch(`${downloadLink}&key=${aiConfig.apiKey}`);
+    if (!response.ok) throw new Error("Failed to download generated video.");
+    
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+};
+
+export const generateSpeech = async (text: string, aiConfig: AiConfig): Promise<string> => {
+    if (aiConfig.provider !== AiProvider.Gemini) {
+        throw new Error("Audio generation is only supported for Google Gemini.");
+    }
+
+    const ai = getGeminiClient(aiConfig.apiKey);
+    
+    const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash-preview-tts",
+        contents: [{ parts: [{ text: text }] }],
+        config: {
+            responseModalities: [Modality.AUDIO],
+            speechConfig: {
+                voiceConfig: {
+                    prebuiltVoiceConfig: { voiceName: 'Kore' },
+                },
+            },
+        },
+    });
+
+    const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+    if (!base64Audio) throw new Error("Audio generation failed.");
+
+    const binaryString = atob(base64Audio);
+    const len = binaryString.length;
+    const bytes = new Uint8Array(len);
+    for (let i = 0; i < len; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    const blob = new Blob([bytes], { type: 'audio/wav' });
+    return URL.createObjectURL(blob);
+};
+
+
 export const generateViralTrends = async (niche: string, aiConfig: AiConfig): Promise<ViralPost[]> => {
     const ai = getGeminiClient(aiConfig.apiKey);
     const prompt = `
@@ -280,7 +426,7 @@ export const generateViralTrends = async (niche: string, aiConfig: AiConfig): Pr
         },
     });
 
-    const parsed = JSON.parse(response.text);
+    const parsed = safeJsonParse<{ viral_posts: ViralPost[] }>(response.text);
     return parsed.viral_posts;
 };
 

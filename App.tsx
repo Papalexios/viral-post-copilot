@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import { Header } from './components/Header';
 import { PostCard } from './components/PostCard';
@@ -11,7 +12,7 @@ import { Resources } from './components/Resources';
 import { LandingPage } from './components/LandingPage';
 import { ViralVault } from './components/ViralVault';
 import { AiProvider, type ApiResponse, type GeneratedPost, type InputFormData, type AiConfig, type WordPressConfig, type ViralPost } from './types';
-import { generateViralPostsStream, generateImageFromPrompt, generateViralTrends } from './services/aiService';
+import { generateViralPostsStream, generateImageFromPrompt, generateViralTrends, generateVeoVideo, generateSpeech } from './services/aiService';
 import { publishPostToWordPress } from './services/wordpressService';
 import { AI_PROVIDERS } from './constants';
 import { WordPressIcon } from './components/icons/WordPressIcon';
@@ -115,7 +116,7 @@ const App: React.FC = () => {
          const defaultConfig: AiConfig = {
             provider: AiProvider.Gemini,
             apiKey: '',
-            model: 'gemini-2.5-flash',
+            model: 'gemini-2.5-pro',
             isValidated: true,
          };
          setAiConfig(defaultConfig);
@@ -140,9 +141,9 @@ const App: React.FC = () => {
     return () => {
       if (apiResponse) {
         apiResponse.posts.forEach(post => {
-          if (post.imageUrl && post.imageUrl.startsWith('blob:')) {
-            URL.revokeObjectURL(post.imageUrl);
-          }
+          if (post.imageUrl && post.imageUrl.startsWith('blob:')) URL.revokeObjectURL(post.imageUrl);
+          if (post.videoUrl && post.videoUrl.startsWith('blob:')) URL.revokeObjectURL(post.videoUrl);
+          if (post.audioUrl && post.audioUrl.startsWith('blob:')) URL.revokeObjectURL(post.audioUrl);
         });
       }
     };
@@ -298,6 +299,74 @@ const App: React.FC = () => {
     }
 };
 
+const handleGenerateVideo = async (postIndex: number) => {
+    if (!apiResponse) return;
+    const post = apiResponse.posts[postIndex];
+    const scriptVariation = post.variations.find(v => v.variation_name === 'Video Script');
+    if (!scriptVariation) return;
+
+    setApiResponse(prev => {
+        if (!prev) return null;
+        const newPosts = [...prev.posts];
+        newPosts[postIndex] = { ...newPosts[postIndex], videoStatus: 'generating', videoError: undefined };
+        return { ...prev, posts: newPosts };
+    });
+
+    try {
+        // Construct a prompt for Veo based on the script and image prompt
+        const videoPrompt = `A cinematic, high-quality video for social media. ${post.image_prompt}. Scene details: ${scriptVariation.post_text.substring(0, 300)}...`;
+        
+        const videoUrl = await generateVeoVideo(videoPrompt, aiConfig);
+        
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            newPosts[postIndex] = { ...newPosts[postIndex], videoStatus: 'completed', videoUrl: videoUrl };
+            const finalCampaign = { ...prev, posts: newPosts };
+            saveCampaignToHistory(finalCampaign);
+            return finalCampaign;
+        });
+
+    } catch (err: any) {
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            newPosts[postIndex] = { ...newPosts[postIndex], videoStatus: 'error', videoError: err.message };
+            return { ...prev, posts: newPosts };
+        });
+    }
+};
+
+const handleGenerateAudio = async (postIndex: number, text: string) => {
+    if (!apiResponse) return;
+
+    setApiResponse(prev => {
+        if (!prev) return null;
+        const newPosts = [...prev.posts];
+        newPosts[postIndex] = { ...newPosts[postIndex], audioStatus: 'generating', audioError: undefined };
+        return { ...prev, posts: newPosts };
+    });
+
+    try {
+        const audioUrl = await generateSpeech(text, aiConfig);
+        setApiResponse(prev => {
+             if (!prev) return null;
+            const newPosts = [...prev.posts];
+            newPosts[postIndex] = { ...newPosts[postIndex], audioStatus: 'completed', audioUrl: audioUrl };
+            const finalCampaign = { ...prev, posts: newPosts };
+            saveCampaignToHistory(finalCampaign);
+            return finalCampaign;
+        });
+    } catch (err: any) {
+        setApiResponse(prev => {
+            if (!prev) return null;
+            const newPosts = [...prev.posts];
+            newPosts[postIndex] = { ...newPosts[postIndex], audioStatus: 'error', audioError: err.message };
+            return { ...prev, posts: newPosts };
+        });
+    }
+};
+
 const handlePublishToWordPress = async (postIndex: number, variationIndex: number): Promise<void> => {
     if (!apiResponse || !wordPressConfig.isValidated) {
         if (!wordPressConfig.isValidated) {
@@ -377,9 +446,6 @@ const handlePublishAll = async () => {
         audience_resonance: "Identifying audience triggers...",
         content_gaps: "Looking for unique opportunities...",
         viral_hooks: [],
-        seo_keywords: { primary: [], secondary: [], lsi: [] },
-        answer_engine_strategy: { suggested_faqs: [] },
-        publishing_cadence: [],
       },
       posts: [],
     };
@@ -393,7 +459,7 @@ const handlePublishAll = async () => {
         if (chunk.type === 'analysis') {
           finalResponse.topic_analysis = chunk.data;
         } else if (chunk.type === 'post') {
-          const newPost: GeneratedPost = { ...chunk.data, imageIsLoading: true, wordpressStatus: 'idle' };
+          const newPost: GeneratedPost = { ...chunk.data, imageIsLoading: true, wordpressStatus: 'idle', videoStatus: 'idle', audioStatus: 'idle' };
           finalResponse.posts.push(newPost);
         } else if (chunk.type === 'grounding') {
           finalResponse.groundingMetadata = chunk.data;
@@ -438,7 +504,7 @@ const handlePublishAll = async () => {
     }
   };
 
-  const hasResults = useMemo(() => apiResponse && (apiResponse.posts.length > 0 || apiResponse.topic_analysis.campaign_strategy !== "Analyzing topic and formulating strategy..."), [apiResponse]);
+  const hasResults = useMemo(() => apiResponse && (apiResponse.posts.length > 0 || (apiResponse.topic_analysis && apiResponse.topic_analysis.campaign_strategy !== "Analyzing topic and formulating strategy...")), [apiResponse]);
   
   const renderContent = () => {
     // Mobile view switching
@@ -533,39 +599,39 @@ const handlePublishAll = async () => {
                 </button>
             )}
           </div>
-
-          <div className="my-8 text-center">
-            <a
-              href="https://seo-hub.affiliatemarketingforsuccess.com/"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block text-base md:text-lg font-bold py-4 px-6 rounded-lg transition-all duration-300 bg-gradient-to-r from-yellow-500 via-orange-500 to-red-500 hover:from-yellow-400 hover:via-orange-400 hover:to-red-400 text-white transform hover:scale-105 active:scale-100 shadow-lg hover:shadow-2xl"
-            >
-              Dominate Your Niche – Unlock Your Complete AI-Powered SEO Arsenal
-            </a>
-          </div>
           
-          <div className="mt-4">
-            <AnalysisDisplay analysis={apiResponse.topic_analysis} groundingMetadata={apiResponse.groundingMetadata} />
+          <div className="mt-8 flex flex-col lg:flex-row gap-8">
+            <aside className="w-full lg:w-1/3 xl:w-1/4 lg:sticky lg:top-8 self-start">
+              <AnalysisDisplay analysis={apiResponse.topic_analysis} groundingMetadata={apiResponse.groundingMetadata} />
+            </aside>
+            <main className="w-full lg:w-2/3 xl:w-3/4">
+              {apiResponse.posts.length > 0 ? (
+                <div className="space-y-8">
+                  <h2 className="text-3xl font-bold text-center mb-4 bg-clip-text text-transparent bg-gradient-to-r from-cyan-500 to-green-500 dark:from-cyan-400 dark:to-green-400">
+                    Generated Campaign Content
+                  </h2>
+                  <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+                    {apiResponse.posts.map((post, index) => (
+                      <PostCard 
+                        key={`${apiResponse.id}-${index}`} 
+                        post={post} 
+                        onRegenerate={() => regenerateImageForPost(index)}
+                        onPublish={(variationIndex) => handlePublishToWordPress(index, variationIndex)}
+                        onGenerateVideo={() => handleGenerateVideo(index)}
+                        onGenerateAudio={(text) => handleGenerateAudio(index, text)}
+                        isWordPressConfigured={wordPressConfig.isValidated}
+                      />
+                    ))}
+                  </div>
+                </div>
+              ) : (
+                 <div className="text-center py-12 px-4 bg-slate-100 dark:bg-slate-800/50 rounded-xl">
+                    <h3 className="mt-4 text-lg font-semibold text-slate-800 dark:text-white">Content Generation Skipped</h3>
+                    <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">The AI provided a strategic analysis but did not generate post content. This can happen with highly complex or abstract topics. Try refining your input or creating a new campaign.</p>
+                </div>
+              )}
+            </main>
           </div>
-          {apiResponse.posts.length > 0 && (
-            <div className="mt-12">
-              <h2 className="text-3xl font-bold text-center mb-8 bg-clip-text text-transparent bg-gradient-to-r from-cyan-500 to-green-500 dark:from-cyan-400 dark:to-green-400">
-                Generated Campaign Content
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {apiResponse.posts.map((post, index) => (
-                  <PostCard 
-                    key={`${apiResponse.id}-${index}`} 
-                    post={post} 
-                    onRegenerate={() => regenerateImageForPost(index)}
-                    onPublish={(variationIndex) => handlePublishToWordPress(index, variationIndex)}
-                    isWordPressConfigured={wordPressConfig.isValidated}
-                  />
-                ))}
-              </div>
-            </div>
-          )}
         </div>
       );
     }
@@ -586,7 +652,7 @@ const handlePublishAll = async () => {
         onToggleViralVault={() => setActiveView('vault')}
       />
       <main className="container mx-auto px-2 sm:px-4 py-8 pb-24 md:pb-8 flex-grow">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           {renderContent()}
         </div>
       </main>

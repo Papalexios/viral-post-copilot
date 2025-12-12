@@ -84,7 +84,6 @@ export const publishPostToWordPress = async (post: GeneratedPost, variationIndex
     const featuredMediaId = await uploadImageToWordPress(post.imageDataUrl, config);
 
     // 2. Combine content for publishing
-    // Fix for trying to access non-existent 'hashtags' property. Hashtags are on post.hashtag_strategy.
     const allHashtags = [
         ...(post.hashtag_strategy?.core || []),
         ...(post.hashtag_strategy?.niche || []),

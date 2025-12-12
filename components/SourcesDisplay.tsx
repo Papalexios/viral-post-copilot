@@ -18,7 +18,8 @@ export const SourcesDisplay: React.FC<SourcesDisplayProps> = ({ groundingMetadat
       <ul className="space-y-2">
         {groundingMetadata.groundingChunks.map((chunk, index) => {
           const source = chunk.web || chunk.maps;
-          if (!source) return null;
+          // FIX: Add a guard to ensure a URI exists before rendering the link, as it is an optional property from the API.
+          if (!source || !source.uri) return null;
 
           return (
             <li key={index}>
